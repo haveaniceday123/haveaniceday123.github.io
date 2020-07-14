@@ -1,0 +1,95 @@
+I"V<p>由画图工具所限，以下均以 s0 作为起始状态，椭圆形作为接收状态。</p>
+
+<h2 id="考虑以下-nfa">考虑以下 NFA</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+s0--"#epsilon;"--&gt;s1
+s1--a--&gt;s1
+s1--b--&gt;s2
+s2--a--&gt;s2
+s2--b--&gt;s1
+s0--"#epsilon;"--&gt;s3
+s3--b--&gt;s3
+s3--a--&gt;s4
+s4--b--&gt;s4
+s4--a--&gt;s3
+s1([s1])
+s3([s3])
+</code></pre>
+
+<h3 id="这一-nfa-接受什么语言用自然语言描述">这一 NFA 接受什么语言（用自然语言描述）</h3>
+
+<p>由 a 和 b 构成的字符串，a 或 b 出现了偶数次。</p>
+
+<h3 id="构造接受同一语言的-dfa">构造接受同一语言的 DFA</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+s0--a--&gt;s1
+s0--b--&gt;s2
+s1--a--&gt;s0
+s1--b--&gt;s3
+s2--b--&gt;s0
+s2--a--&gt;s3
+s3--b--&gt;s1
+s3--a--&gt;s2
+s0([s0])
+s1([s1])
+s2([s2])
+</code></pre>
+
+<h2 id="正则语言补运算">正则语言补运算</h2>
+
+<h3 id="画出一个-dfa该-dfa-恰好识别所有含有-011-子串的二进制串">画出一个 DFA，该 DFA 恰好识别所有含有 011 子串的二进制串</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+s0--0--&gt;s1
+s0--1--&gt;s0
+s1--0--&gt;s1
+s1--1--&gt;s2
+s2--0--&gt;s1
+s2--1--&gt;s3
+s3--0--&gt;s3
+s3--1--&gt;s3
+s3([s3])
+</code></pre>
+
+<h3 id="画出一个-dfa该-dfa-恰好识别所有不含-011-子串的二进制串">画出一个 DFA，该 DFA 恰好识别所有不含 011 子串的二进制串</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+s0--0--&gt;s1
+s0--1--&gt;s0
+s1--0--&gt;s1
+s1--1--&gt;s2
+s2--0--&gt;s1
+s2--1--&gt;s3
+s3--0--&gt;s3
+s3--1--&gt;s3
+s0([s0])
+s1([s1])
+s2([s2])
+</code></pre>
+
+<h3 id="再证明对任一正则表达式-r一定存在另一正则表达式-r使得-lr-是-lr-的补集">再证明：对任一正则表达式 $R$，一定存在另一正则表达式 $R’$，使得 $L(R’)$ 是 $L(R)$ 的补集</h3>
+
+<p>因为正则表达式和 DFA 是等价的，不妨设识别 $L(R)$ 的 DFA 为 $M$。由前两问容易发现，将 $M$ 中所有接收状态与非接收状态反转可得到 $M’$，它将识别 $L(R)$ 的补集 $L(R’)$。再次利用正则表达式与 DFA 的等价性可以证明并求得 $R’$。</p>
+
+<h2 id="设有一门小小语言仅含-zo斜杠3-个符号该语言中的一个注释以一个o-为开始标记以此后出现的第一个-o为结束标记">设有一门小小语言仅含 <code class="language-plaintext highlighter-rouge">z</code>、<code class="language-plaintext highlighter-rouge">o</code>、<code class="language-plaintext highlighter-rouge">/</code>（斜杠）3 个符号，该语言中的一个注释以一个<code class="language-plaintext highlighter-rouge">/o</code> 为开始标记，以此后出现的第一个 <code class="language-plaintext highlighter-rouge">o/</code>为结束标记</h2>
+
+<h3 id="请给出单个正则表达式它仅与一个完整的注释匹配除此之外不匹配任何其他串书写正则表达式时要求仅使用最基本的正则表达式算子varepsilonvert">请给出单个正则表达式，它仅与一个完整的注释匹配，除此之外不匹配任何其他串。书写正则表达式时，要求仅使用最基本的正则表达式算子（$\varepsilon$，$\vert$，*，+，？）</h3>
+
+<p><code class="language-plaintext highlighter-rouge">/o((o*z)|/)*o+/</code></p>
+
+<h2 id="给出识别上述正则表达式所定义语言的确定有限自动机dfa-你可根据问题直接构造-dfa不必运用机械的算法从上一小题的正则表达式转换得到-dfa">给出识别上述正则表达式所定义语言的确定有限自动机（DFA）. 你可根据问题直接构造 DFA，不必运用机械的算法从上一小题的正则表达式转换得到 DFA</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+s0--/--&gt;s1
+s1--"o"--&gt;s2
+s2--z--&gt;s2
+s2--/--&gt;s2
+s2--"o"--&gt;s3
+s3--z--&gt;s2
+s3--"o"--&gt;s3
+s3--/--&gt;s4
+s4([s4])
+</code></pre>
+:ET

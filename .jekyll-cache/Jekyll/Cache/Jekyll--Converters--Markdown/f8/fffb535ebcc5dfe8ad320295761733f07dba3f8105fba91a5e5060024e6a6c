@@ -1,0 +1,324 @@
+I"�<p>使用下面一种或多种优化方法完成 CUDA 的矩阵乘法$C=A\times B$</p>
+
+<ul>
+  <li>使用 global memory 合并访存</li>
+  <li>采用分块乘法，使用 shared memory</li>
+  <li>请找出最佳的执行配置参数：grid 和 block</li>
+</ul>
+
+<p>其中 $A$，$B$，$C$ 是$2^{12}\times 2^{12}$的方阵，按下面定义元素：</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">a[i][j] = (i - 0.1 * j + 1) / (i + j + 1)</code></li>
+  <li><code class="language-plaintext highlighter-rouge">b[i][j] = (j - 0.2 * i + 1) * (i + j + 1) / (i * i + j * j + 1)</code></li>
+</ul>
+
+<h2 id="实验环境">实验环境</h2>
+
+<p>实验在老师提供的计算集群的一个节点上进行。单节点的显卡配置如下：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>nvdia-smi
+Mon Dec  2 08:38:49 2019
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 410.48                 Driver Version: 410.48                    |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|<span class="o">===============================</span>+<span class="o">======================</span>+<span class="o">======================</span>|
+|   0  Tesla V100-PCIE...  On   | 00000000:3B:00.0 Off |                    0 |
+| N/A   30C    P0    24W / 250W |      0MiB / 16130MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID   Type   Process name                             Usage      |
+|<span class="o">=============================================================================</span>|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+</code></pre></div></div>
+
+<h2 id="实验原理">实验原理</h2>
+
+<p>优化 CUDA 架构上的程序，一般从以下几个方面考虑：</p>
+
+<ul>
+  <li>选择好的并行算法，发掘更多的数据并行性</li>
+  <li>保持 SM 尽可能忙碌，尽量利用所有的 SM 参与计算
+    <ul>
+      <li>加大数据量</li>
+      <li>减小线程块大小</li>
+    </ul>
+  </li>
+  <li>优化存储器的使用
+    <ul>
+      <li>全局存储器合并访问</li>
+      <li>使用更快的 constant memory 或 shared memory</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="实验过程">实验过程</h2>
+
+<blockquote>
+  <ul>
+    <li>使用 global memory 合并访存</li>
+    <li>采用分块乘法，使用 shared memory</li>
+    <li>请找出最佳的执行配置参数：grid 和 blocks</li>
+  </ul>
+</blockquote>
+
+<p>这次实验和上一个实验<a href="https://wu-kan.cn/_posts/2019-11-29-CUDA%E7%9F%A9%E9%98%B5%E5%90%91%E9%87%8F%E4%B9%98%E7%9A%84%E5%A4%9A%E7%A7%8D%E4%BC%98%E5%8C%96/">CUDA 矩阵向量乘的多种优化</a>其实非常相似：矩阵向量乘法中一个线程对应答案向量中的一个元素，矩阵矩阵乘法中一个线程对应答案矩阵的一个元素（使用二维分块）。不过，还有这些代码细节需要注意：</p>
+
+<ul>
+  <li>矩阵 B 的访问天然就是连续的，要使得对矩阵 A 的访问连续，可以考虑在 A 的列优先表达上进行计算；</li>
+  <li>矩阵 A 和 B 的每个位置都被访问了多次，因此都可以使用 shared memory 进行优化</li>
+  <li>由于测试的矩阵是长宽相等的正方形，因此在两个维度上的计算是大抵相似的，分块时也按正方形分块会有最少的访存（global 内存）次数</li>
+  <li>一个线程块里最多 1024 个线程，这里由于要正方形分块，因此分块的宽度不能超过 32（$32\times 32=1024$）</li>
+  <li>二维 Shared Memory 大小增加了一位用于避免列维度上多个线程访问同一个 Bank 产生 Bank conflict（不妨<code class="language-plaintext highlighter-rouge">#define double float</code>，更加明显，因为现在的卡的 bank 至少都有 32 个 banks，每个 bank 带宽是 32bit）</li>
+</ul>
+
+<p>矩阵矩阵乘法的实现也可以通过重复调用之前的矩阵向量乘来实现，但是无法通过 shared memory 对矩阵的访存进行优化（只优化了对向量的访问），因而不如矩阵分块的方法优秀。此外，也可以通过调用 <code class="language-plaintext highlighter-rouge">&lt;cublas_v2.h&gt;</code> 或者 <code class="language-plaintext highlighter-rouge">&lt;cublasLt.h&gt;</code> 实现，但是不是本次实验重点。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">template</span> <span class="o">&lt;</span><span class="kt">size_t</span> <span class="n">BLOCK_SIZE</span><span class="p">&gt;</span>
+<span class="kt">void</span> <span class="n">__global__</span> <span class="nf">MatMatMul</span><span class="p">(</span>
+	<span class="k">const</span> <span class="kt">double</span> <span class="o">*</span><span class="n">Ac</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">double</span> <span class="o">*</span><span class="n">B</span><span class="p">,</span>
+	<span class="kt">double</span> <span class="o">*</span><span class="n">C</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">size_t</span> <span class="n">m</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">size_t</span> <span class="n">n</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">size_t</span> <span class="n">p</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">const</span> <span class="kt">size_t</span>
+		<span class="n">r</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">,</span>
+		<span class="n">c</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+	<span class="kt">double</span> <span class="n">res</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="n">t</span> <span class="o">+=</span> <span class="n">BLOCK_SIZE</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="kt">double</span> <span class="n">__shared__</span>
+			<span class="n">sAc</span><span class="p">[</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
+			<span class="n">sB</span><span class="p">[</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+		<span class="n">__syncthreads</span><span class="p">();</span>
+		<span class="n">sAc</span><span class="p">[</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">m</span> <span class="o">&amp;&amp;</span> <span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">?</span> <span class="n">Ac</span><span class="p">[(</span><span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span> <span class="o">+</span> <span class="n">r</span><span class="p">]</span> <span class="o">:</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="n">sB</span><span class="p">[</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="n">p</span> <span class="o">&amp;&amp;</span> <span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">?</span> <span class="n">B</span><span class="p">[(</span><span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span> <span class="o">:</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="n">__syncthreads</span><span class="p">();</span>
+		<span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">x</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+			<span class="n">res</span> <span class="o">+=</span> <span class="n">sAc</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">]</span> <span class="o">*</span> <span class="n">sB</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">];</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">r</span> <span class="o">&lt;</span> <span class="n">m</span> <span class="o">&amp;&amp;</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="n">p</span><span class="p">)</span>
+		<span class="n">C</span><span class="p">[</span><span class="n">r</span> <span class="o">*</span> <span class="n">p</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>最终测试结果如下：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Grids</th>
+      <th>Blocks</th>
+      <th>Elapsed Time(ms)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>(128,128)</td>
+      <td>(32,32)</td>
+      <td>108.868576ms</td>
+    </tr>
+    <tr>
+      <td>(256,256)</td>
+      <td>(16,16)</td>
+      <td>125.305084ms</td>
+    </tr>
+    <tr>
+      <td>(512,512)</td>
+      <td>(8,8)</td>
+      <td>178.711777ms</td>
+    </tr>
+    <tr>
+      <td>(1024,1024)</td>
+      <td>(4,4)</td>
+      <td>615.897156ms</td>
+    </tr>
+    <tr>
+      <td>(2048,2048)</td>
+      <td>(2,2)</td>
+      <td>2492.207520ms</td>
+    </tr>
+    <tr>
+      <td>(4096,4096)</td>
+      <td>(1,1)</td>
+      <td>16997.095703ms</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>可以看到，当执行参数设置成<code class="language-plaintext highlighter-rouge">(128,128)grids, (32,32)blocks</code>的时候，这里的矩阵乘法有最佳的性能表现。相对于分块大小为 1（相当于不分块），计算性能提高了将近一百六十倍，还是相当显著的。</p>
+
+<h2 id="源代码">源代码</h2>
+
+<h3 id="matmatmulcu"><code class="language-plaintext highlighter-rouge">MatMatMul.cu</code></h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;cuda_runtime.h&gt;
+</span><span class="k">template</span> <span class="o">&lt;</span><span class="kt">size_t</span> <span class="n">BLOCK_SIZE</span><span class="p">&gt;</span>
+<span class="kt">void</span> <span class="n">__global__</span> <span class="nf">MatMatMul</span><span class="p">(</span>
+	<span class="k">const</span> <span class="kt">double</span> <span class="o">*</span><span class="n">Ac</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">double</span> <span class="o">*</span><span class="n">B</span><span class="p">,</span>
+	<span class="kt">double</span> <span class="o">*</span><span class="n">C</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">size_t</span> <span class="n">m</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">size_t</span> <span class="n">n</span><span class="p">,</span>
+	<span class="k">const</span> <span class="kt">size_t</span> <span class="n">p</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">const</span> <span class="kt">size_t</span>
+		<span class="n">r</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">,</span>
+		<span class="n">c</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+	<span class="kt">double</span> <span class="n">res</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="n">t</span> <span class="o">+=</span> <span class="n">BLOCK_SIZE</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="kt">double</span> <span class="n">__shared__</span>
+			<span class="n">sAc</span><span class="p">[</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
+			<span class="n">sB</span><span class="p">[</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">BLOCK_SIZE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+		<span class="n">__syncthreads</span><span class="p">();</span>
+		<span class="n">sAc</span><span class="p">[</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="n">m</span> <span class="o">&amp;&amp;</span> <span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">?</span> <span class="n">Ac</span><span class="p">[(</span><span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span> <span class="o">+</span> <span class="n">r</span><span class="p">]</span> <span class="o">:</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="n">sB</span><span class="p">[</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="n">p</span> <span class="o">&amp;&amp;</span> <span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">?</span> <span class="n">B</span><span class="p">[(</span><span class="n">t</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span> <span class="o">:</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="n">__syncthreads</span><span class="p">();</span>
+		<span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">x</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+			<span class="n">res</span> <span class="o">+=</span> <span class="n">sAc</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">]</span> <span class="o">*</span> <span class="n">sB</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">];</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">r</span> <span class="o">&lt;</span> <span class="n">m</span> <span class="o">&amp;&amp;</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="n">p</span><span class="p">)</span>
+		<span class="n">C</span><span class="p">[</span><span class="n">r</span> <span class="o">*</span> <span class="n">p</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="k">const</span> <span class="kt">size_t</span>
+		<span class="n">nRow</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">,</span>
+		<span class="n">nCol</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">;</span>
+	<span class="kt">double</span>
+		<span class="o">*</span><span class="n">h_Ac</span><span class="p">,</span>
+		<span class="o">*</span><span class="n">h_B</span><span class="p">,</span>
+		<span class="o">*</span><span class="n">d_Ac</span><span class="p">,</span>
+		<span class="o">*</span><span class="n">d_B</span><span class="p">,</span>
+		<span class="o">*</span><span class="n">d_C</span><span class="p">;</span>
+
+	<span class="n">cudaMalloc</span><span class="p">(</span>
+		<span class="o">&amp;</span><span class="n">d_Ac</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nRow</span> <span class="o">*</span> <span class="n">nCol</span><span class="p">);</span>
+	<span class="n">cudaMalloc</span><span class="p">(</span>
+		<span class="o">&amp;</span><span class="n">d_B</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nCol</span> <span class="o">*</span> <span class="n">nRow</span><span class="p">);</span>
+	<span class="n">cudaMalloc</span><span class="p">(</span>
+		<span class="o">&amp;</span><span class="n">d_C</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nRow</span> <span class="o">*</span> <span class="n">nRow</span><span class="p">);</span>
+
+	<span class="n">cudaHostAlloc</span><span class="p">(</span>
+		<span class="o">&amp;</span><span class="n">h_Ac</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nRow</span> <span class="o">*</span> <span class="n">nCol</span><span class="p">,</span>
+		<span class="n">cudaHostAllocWriteCombined</span><span class="p">);</span>
+	<span class="n">cudaHostAlloc</span><span class="p">(</span>
+		<span class="o">&amp;</span><span class="n">h_B</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nCol</span> <span class="o">*</span> <span class="n">nRow</span><span class="p">,</span>
+		<span class="n">cudaHostAllocWriteCombined</span><span class="p">);</span>
+
+	<span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nRow</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+		<span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">nCol</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="n">h_Ac</span><span class="p">[</span><span class="n">j</span> <span class="o">*</span> <span class="n">nRow</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+			<span class="n">h_B</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">nCol</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">i</span> <span class="o">+</span> <span class="n">j</span> <span class="o">*</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+		<span class="p">}</span>
+
+	<span class="n">cudaMemcpy</span><span class="p">(</span>
+		<span class="n">d_Ac</span><span class="p">,</span>
+		<span class="n">h_Ac</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nRow</span> <span class="o">*</span> <span class="n">nCol</span><span class="p">,</span>
+		<span class="n">cudaMemcpyHostToDevice</span><span class="p">);</span>
+	<span class="n">cudaMemcpy</span><span class="p">(</span>
+		<span class="n">d_B</span><span class="p">,</span>
+		<span class="n">h_B</span><span class="p">,</span>
+		<span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span> <span class="o">*</span> <span class="n">nCol</span> <span class="o">*</span> <span class="n">nRow</span><span class="p">,</span>
+		<span class="n">cudaMemcpyHostToDevice</span><span class="p">);</span>
+
+	<span class="n">cudaFreeHost</span><span class="p">(</span><span class="n">h_Ac</span><span class="p">);</span>
+	<span class="n">cudaFreeHost</span><span class="p">(</span><span class="n">h_B</span><span class="p">);</span>
+
+	<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">tile_width</span> <span class="o">=</span> <span class="mi">32</span><span class="p">;</span> <span class="n">tile_width</span><span class="p">;</span> <span class="n">tile_width</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="n">cudaEvent_t</span> <span class="n">beg</span><span class="p">,</span> <span class="n">end</span><span class="p">;</span>
+		<span class="n">cudaEventCreate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">beg</span><span class="p">);</span>
+		<span class="n">cudaEventCreate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">end</span><span class="p">);</span>
+		<span class="n">cudaEventRecord</span><span class="p">(</span><span class="n">beg</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+
+		<span class="k">const</span> <span class="n">dim3</span>
+			<span class="n">gridDim</span><span class="p">((</span><span class="n">nRow</span> <span class="o">+</span> <span class="n">tile_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">tile_width</span><span class="p">,</span> <span class="p">(</span><span class="n">nRow</span> <span class="o">+</span> <span class="n">tile_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">tile_width</span><span class="p">),</span>
+			<span class="n">blockDim</span><span class="p">(</span><span class="n">tile_width</span><span class="p">,</span> <span class="n">tile_width</span><span class="p">);</span>
+<span class="cp">#define cal_kernel(TILE)        \
+	do                          \
+	{                           \
+		if (tile_width == TILE) \
+			MatMatMul&lt;          \
+				TILE&gt;&lt;&lt;&lt;        \
+				gridDim,        \
+				blockDim&gt;&gt;&gt;(    \
+				d_Ac,           \
+				d_B,            \
+				d_C,            \
+				nRow,           \
+				nCol,           \
+				nRow);          \
+	} while (0)
+</span>		<span class="n">cal_kernel</span><span class="p">(</span><span class="mi">32</span><span class="p">);</span>
+		<span class="n">cal_kernel</span><span class="p">(</span><span class="mi">16</span><span class="p">);</span>
+		<span class="n">cal_kernel</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+		<span class="n">cal_kernel</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+		<span class="n">cal_kernel</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+		<span class="n">cal_kernel</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+
+		<span class="n">cudaDeviceSynchronize</span><span class="p">();</span>
+		<span class="n">cudaEventRecord</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+		<span class="n">cudaEventSynchronize</span><span class="p">(</span><span class="n">beg</span><span class="p">);</span>
+		<span class="n">cudaEventSynchronize</span><span class="p">(</span><span class="n">end</span><span class="p">);</span>
+		<span class="kt">float</span> <span class="n">elapsed_time</span><span class="p">;</span>
+		<span class="n">cudaEventElapsedTime</span><span class="p">(</span>
+			<span class="o">&amp;</span><span class="n">elapsed_time</span><span class="p">,</span>
+			<span class="n">beg</span><span class="p">,</span>
+			<span class="n">end</span><span class="p">);</span>
+		<span class="n">printf</span><span class="p">(</span>
+			<span class="s">"(%d,%d)grids, (%d,%d)blocks, %fms elapsed.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+			<span class="n">gridDim</span><span class="p">.</span><span class="n">x</span><span class="p">,</span>
+			<span class="n">gridDim</span><span class="p">.</span><span class="n">y</span><span class="p">,</span>
+			<span class="n">blockDim</span><span class="p">.</span><span class="n">x</span><span class="p">,</span>
+			<span class="n">blockDim</span><span class="p">.</span><span class="n">y</span><span class="p">,</span>
+			<span class="n">elapsed_time</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">cudaFree</span><span class="p">(</span><span class="n">d_Ac</span><span class="p">);</span>
+	<span class="n">cudaFree</span><span class="p">(</span><span class="n">d_B</span><span class="p">);</span>
+	<span class="n">cudaFree</span><span class="p">(</span><span class="n">d_C</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="matmatmulo16434"><code class="language-plaintext highlighter-rouge">MatMatMul.o16434</code></h3>
+
+<p>各种参数和分块的运行时间。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">(</span>128,128<span class="o">)</span>grids, <span class="o">(</span>32,32<span class="o">)</span>blocks, 108.868576ms elapsed.
+<span class="o">(</span>256,256<span class="o">)</span>grids, <span class="o">(</span>16,16<span class="o">)</span>blocks, 125.305084ms elapsed.
+<span class="o">(</span>512,512<span class="o">)</span>grids, <span class="o">(</span>8,8<span class="o">)</span>blocks, 178.711777ms elapsed.
+<span class="o">(</span>1024,1024<span class="o">)</span>grids, <span class="o">(</span>4,4<span class="o">)</span>blocks, 615.897156ms elapsed.
+<span class="o">(</span>2048,2048<span class="o">)</span>grids, <span class="o">(</span>2,2<span class="o">)</span>blocks, 2492.207520ms elapsed.
+<span class="o">(</span>4096,4096<span class="o">)</span>grids, <span class="o">(</span>1,1<span class="o">)</span>blocks, 16997.095703ms elapsed.
+</code></pre></div></div>
+
+<h3 id="matmatmulpbs"><code class="language-plaintext highlighter-rouge">MatMatMul.pbs</code></h3>
+
+<p>调度脚本。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#PBS -N MatMatMul</span>
+<span class="c">#PBS -l nodes=1:ppn=32:gpus=1</span>
+<span class="c">#PBS -j oe</span>
+<span class="c">#PBS -q gpu</span>
+<span class="nb">source</span> /public/software/profile.d/cuda10.0.sh
+<span class="nb">cd</span> <span class="nv">$PBS_O_WORKDIR</span>
+nvcc MatMatMul.cu <span class="nt">-run</span>
+</code></pre></div></div>
+:ET

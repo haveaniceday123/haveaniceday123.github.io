@@ -1,0 +1,132 @@
+I"�<h2 id="用上下文无关文法描述下列语言">用上下文无关文法描述下列语言</h2>
+
+<h3 id="定义在字母表-suma-b-上所有首字符和尾字符相同的非空字符串">定义在字母表 $\sum={a, b}$ 上，所有首字符和尾字符相同的非空字符串</h3>
+
+\[S\to aRa\vert bRb\vert a\vert b \\
+R\to Ra\vert Rb\vert \varepsilon\]
+
+<ol>
+  <li>$R$ 表示字典表是 $\sum$ 上的所有字符串</li>
+  <li>$S$ 在 $R$ 的基础上定义题目要求的串，注意到单个 $a$ 和 $b$ 也是符合要求的。</li>
+</ol>
+
+<h3 id="l0i1jvert-0le-ile-j-le-2i">$L={0^i1^j\vert 0\le i\le j \le 2i}$</h3>
+
+\[S\to 0S1\vert 0S11\vert\varepsilon\]
+
+<ol>
+  <li>若 $S$ 符合要求，则 $0S1$ 符合要求，可得 $S\to 0S1$</li>
+  <li>若 $S$ 符合要求，则 $0S11$ 符合要求，可得 $S\to 0S11$</li>
+  <li>空串符合要求，可得 $S\to\varepsilon$</li>
+</ol>
+
+<h3 id="定义在字母表-sum-0-1上所有含有相同个数的-0-和-1-的字符串包括空串">定义在字母表 $\sum ={0, 1}$上，所有含有相同个数的 0 和 1 的字符串（包括空串）</h3>
+
+\[S\to SS\vert 0S1\vert 1S0 \vert\varepsilon\]
+
+<ol>
+  <li>若首尾字母相同，那么原字符串一定能划分成两个符合要求的子串，于是得到 $S\to SS$</li>
+  <li>若首尾字母不同，则去掉首尾字母仍然符合要求，于是得到 $S\to 0S1\vert 1S0$</li>
+  <li>空串符合要求，得到 $S\to\varepsilon$</li>
+</ol>
+
+<h2 id="考虑以下文法">考虑以下文法</h2>
+
+\[S\to aABe \\
+A\to Abc\vert b \\
+B\to b\]
+
+<h3 id="用最左推导leftmost-derivation推导出句子-abbcde">用最左推导（leftmost derivation）推导出句子 abbcde</h3>
+
+\[S\Rightarrow aABe\Rightarrow aAbcBe \Rightarrow abbcBe \Rightarrow abbcde\]
+
+<h3 id="用最右推导rightmost-derivation推导出句子-abbcde">用最右推导（rightmost derivation）推导出句子 abbcde</h3>
+
+\[S\Rightarrow aABe \Rightarrow aAde \Rightarrow aAbcde \Rightarrow abbcde\]
+
+<h3 id="画出句子-abbcde-对应的分析树parse-tree">画出句子 abbcde 对应的分析树（parse tree）</h3>
+
+<pre><code class="language-mermaid">flowchart TB
+S0---S1
+S0---S2
+S0---S3
+S0---S4
+S2---S5
+S2---S6
+S2---S7
+S3---S8
+S5---S9
+S0[S]
+S1[a]
+S2[A]
+S3[B]
+S4[e]
+S5[A]
+S6[b]
+S7[c]
+S8[d]
+S9[b]
+</code></pre>
+
+<h2 id="考虑下述文法">考虑下述文法</h2>
+
+\[S \to aSb\\
+S \to aS\\
+S \to \varepsilon\]
+
+<h2 id="这一文法产生什么语言用自然语言描述">这一文法产生什么语言（用自然语言描述）</h2>
+
+<p>若干个 $a$ 紧接若干个 $b$ 的字符串，且 $a$ 的数量不少于 $b$ 。</p>
+
+<h2 id="证明这一文法是二义的">证明这一文法是二义的</h2>
+
+<p>例如，对于串 $aab$ 可以产生下述两种分析树:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+subgraph 分析树B
+S0---S1
+S0---S2
+S0---S3
+S2---S4
+S2---S5
+S5---S6
+S0[S]
+S1[a]
+S2[S]
+S3[b]
+S4[a]
+S5[S]
+S6["#epsilon;"]
+end
+subgraph 分析树A
+S7---S8
+S7---S9
+S9---Sa
+S9---Sb
+S9---Sc
+Sb---Sd
+S7[S]
+S8[a]
+S9[S]
+Sa[a]
+Sb[S]
+Sc[b]
+Sd["#epsilon;"]
+end
+</code></pre>
+
+<h2 id="写出一个新的文法要求新文法无二义且和上述文法产生相同的语言">写出一个新的文法，要求新文法无二义且和上述文法产生相同的语言</h2>
+
+\[S\to aSb\vert R\\
+R\to aR\vert \varepsilon\]
+
+<p>由前一问可以知道，产生二义性的原因是，对于某些位置的 $a$ ，既可以从第一条规则得到，也可以由第二条规则得到。因此考虑定义一个新的只含有字母 $a$ 的串 $R$，这样就可以规定每一个 $a$ 是由哪一条规则得到的（不妨设串中有 $\alpha$ 个 $a$，$\beta$ 个 $b$ ，则由第一问有 $\alpha \ge \beta$）：</p>
+
+<ol>
+  <li>如果对于特定位置的 $a$，它到最近的 $b$ 的距离小于等于 $\beta$，则它是由第一条规则得到的。</li>
+  <li>如果对于特定位置的 $a$，它到最近的 $b$ 的距离大于 $\beta$，则它是由第二条规则得到的。</li>
+  <li>对于所有的 $b$，它一定是由第一条规则得到的。</li>
+</ol>
+
+<p>由此可以证明文法无二义，同时证明过程也推导了任意一个前述文法相同语言的过程，于是这个新的文法是符合要求的。</p>
+:ET

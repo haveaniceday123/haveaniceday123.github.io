@@ -1,0 +1,4 @@
+I"<blockquote>
+  <p>Consider a sparse matrix stored in the compressed row format (you may find a description of this format on the web or any suitable text on sparse linear algebra). Write an OpenMP program for computing the product of this matrix with a vector. Download sample matrics from the <a href="https://math.nist.gov/MatrixMarket/data/Harwell-Boeing/psadmit/1138_bus.html">Matrix Market</a> and test the performance of your implementation as a function of matrix size and number of threads.</p>
+</blockquote>
+:ET

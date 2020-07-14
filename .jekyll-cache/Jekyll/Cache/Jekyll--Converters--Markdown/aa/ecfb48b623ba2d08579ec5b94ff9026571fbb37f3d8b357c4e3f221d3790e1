@@ -1,0 +1,169 @@
+I"�<p>只需画出相应的自动机，并指出冲突的状态即可，不需要构造完整的分析表.</p>
+
+<h2 id="证明下列文法是-lalr1-文法但不是-slr1-文法">证明下列文法是 LALR(1) 文法但不是 SLR(1) 文法</h2>
+
+\[S\to Aa\vert bAc\vert dc\vert bda\\
+A\to d\]
+
+<p>以下是构造的 LR(1) 自动机，没有同核心的状态，不需要合并， LALR 分析表不冲突，因此是 LALR(1) 文法。</p>
+
+<pre><code class="language-mermaid">flowchart TB
+I0--S--&gt;I1
+I0--b--&gt;I2
+I0--A--&gt;I3
+I0--D--&gt;I4
+I1--$--&gt;AC
+I2--A--&gt;I5
+I2--d--&gt;I6
+I3--a--&gt;I7
+I4--c--&gt;I8
+I5--c--&gt;I9
+I6--a--&gt;I10
+AC["accept"]
+I0["
+    I0
+    S'#rarr;#middot;S,$
+    S#rarr;#middot;Aa,$
+    S#rarr;#middot;bAc,$
+    S#rarr;#middot;dc,$
+    S#rarr;#middot;bda,$
+    A#rarr;#middot;d,a
+"]
+I1["
+    I1
+    S'#rarr;S#middot;,$
+"]
+I2["
+    I2
+    S#rarr;b#middot;Ac,$
+    S#rarr;b#middot;da,$
+    A#rarr;#middot;d,c
+"]
+I3["
+    I3
+    S#rarr;A#middot;a,$
+"]
+I4["
+    I4
+    S#rarr;d#middot;c,$
+    A#rarr;d#middot;,a
+"]
+I5["
+    I5
+    S#rarr;bA#middot;c,$
+"]
+I6["
+    I6
+    S#rarr;bd#middot;a,$
+    A#rarr;d#middot;,c
+"]
+I7["
+    I7
+    S#rarr;Aa#middot;,$
+"]
+I8["
+    I8
+    S#rarr;dc#middot;,$
+"]
+I9["
+    I9
+    S#rarr;bAc#middot;,$
+"]
+I10["
+    I10
+    S#rarr;bda#middot;,$
+"]
+</code></pre>
+
+<p>然而对于图中状态 I4 ，当输入符号为 $c$ 时，有 $c\in{a,c}=\text{FOLLOW}(A)$，同时有移进 $S\to d\cdot c$ 和规约 $S\to d\cdot$，因此不是 SLR(1) 文法。</p>
+
+<h2 id="证明下列文法是-lr1-文法但不是-lalr1-文法">证明下列文法是 LR(1) 文法但不是 LALR(1) 文法</h2>
+
+\[S\to Aa\vert bAc\vert dc\vert bBa\\
+A\to d\\
+B\to d\]
+
+<p>使用增广文法增加新的开始符号 $S’$ 和产生式 $S’\to S$。以下是构造的自动机，显然 LR 分析表不冲突，因此是 LR(1) 文法。</p>
+
+<pre><code class="language-mermaid">flowchart TB
+I0--S--&gt;I1
+I0--A--&gt;I2
+I0--b--&gt;I3
+I0--d--&gt;I4
+I0--B--&gt;I5
+I1--$--&gt;AC
+I2--a--&gt;I6
+I3--B--&gt;I7
+I3--A--&gt;I8
+I3--d--&gt;I9
+I5--c--&gt;I10
+I7--a--&gt;I11
+I8--c--&gt;I12
+AC["accept"]
+I0["
+    I0
+    S'#rarr;#middot;S,$
+    S#rarr;#middot;Aa,$
+    S#rarr;#middot;bAc,$
+    S#rarr;#middot;Bc,$
+    S#rarr;#middot;bBa,$
+    A#rarr;#middot;d,a
+    B#rarr;#middot;d,c
+"]
+I1["
+    I1
+    S'#rarr;S#middot;,$
+"]
+I2["
+    I2
+    S#rarr;A#middot;a,$
+"]
+I3["
+    I3
+    S#rarr;b#middot;Ac,$
+    S#rarr;b#middot;Ba,$
+    A#rarr;#middot;d,c
+    B#rarr;#middot;d,a
+"]
+I4["
+    I4
+    A#rarr;d#middot;,a
+    B#rarr;d#middot;,c
+"]
+I5["
+    I5
+    S#rarr;B#middot;c,$
+"]
+I6["
+    I6
+    S#rarr;Aa#middot;,$
+"]
+I7["
+    I7
+    S#rarr;bB#middot;a,$
+"]
+I8["
+    I8
+    S#rarr;bA#middot;c,$
+"]
+I9["
+    I9
+    A#rarr;d#middot;,c
+    B#rarr;d#middot;,a
+"]
+I10["
+    I10
+    S#rarr;Bc#middot;,$
+"]
+I11["
+    I11
+    S#rarr;bBa#middot;,$
+"]
+I12["
+    I12
+    S#rarr;bAc#middot;,$
+"]
+</code></pre>
+
+<p>将图中具有相同核心的 I4 和 I9 合并，会出现 $A\to d\cdot,a$ 和 $A\to d\cdot,c$ 的规约-规约冲突，因此不是 LALR(1) 文法。</p>
+:ET

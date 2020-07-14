@@ -1,0 +1,337 @@
+I"��<p>使用 OpenGL 实现简易的星球旋转效果，如图 1。程序执行效果见附带压缩包的 EXE 程序（EXE 文件为 Win 程序，使用 Mac OS 和 Linux 的同学请参照 Win 平台下的执行效果） 。</p>
+
+<h2 id="功能要求">功能要求</h2>
+
+<ol>
+  <li>使用不同尺寸的线框球体（Wire Sphere）表示大小两个星球</li>
+  <li>使用平移和旋转操作实现小星球自转和绕大星球旋转的功能，键盘事件响应如下： d 和 shift+d: 分别控制小星球正反两个方向的自转； y 和 shift+y: 分别控制小星球绕大星球的正方向和反方向旋转</li>
+  <li>语言不限，开发平台不限。具体效果展示允许略有差异。</li>
+  <li>要求使用 OpenGL 着色器编程方式实现程序。</li>
+</ol>
+
+<h2 id="实现提示">实现提示</h2>
+
+<p>正方向旋转可以通过以下方式求得：d = (d + 10) % 360；反方向则为 d = (d - 10) % 360</p>
+
+<h2 id="project3">Project3</h2>
+
+<p>一开始我的开发环境是搭在 Linux 环境下的，但是运行时发生了各种异常，在吴飚、王威等同学讨论之后（感谢他们），重新在 Windows 下使用 VS2019 开发。相关项目目录是<code class="language-plaintext highlighter-rouge">/Project3</code>，打包好的成品是<code class="language-plaintext highlighter-rouge">project3.exe</code>。</p>
+
+<h3 id="运行效果">运行效果</h3>
+
+<p>这里不太会画线框球体，于是用二十个三角形去模拟这个球体。</p>
+
+<p>另外，遇到很迷的问题，恒星没有显示出来…</p>
+
+<p>打开的效果如下。</p>
+
+<p><img src="/assets/image/2019-09-30-2.jpg" alt="2" /></p>
+
+<p>按了若干下 d 和 y 之后如图，行星转到了上方，并且发生了一定的自转（极点位置变动了）。</p>
+
+<p><img src="/assets/image/2019-09-30-3.jpg" alt="3" /></p>
+
+<h3 id="原理">原理</h3>
+
+<h4 id="二维坐标下绕原点自转">二维坐标下绕原点自转</h4>
+
+<p>记$\theta$是要旋转的角度，记$dayd$是幅角为$\theta$的单位向量。考虑复数的乘法意义：幅角相加、模长相乘，只需要将原来的点在复数域上与<code class="language-plaintext highlighter-rouge">dayd</code>做一次乘法即可。</p>
+
+<p>$aPos’=(aPos.x<em>dayd.x-aPos.y</em>dayd.y, aPos.y<em>dayd.x+aPos.x</em>dayd.y)$</p>
+
+<h4 id="二维坐标下绕原点公转">二维坐标下绕原点公转</h4>
+
+<p>公转相对容易，只要算出现在位置和原位置的向量差$yeard$即可。</p>
+
+<p>$aPos’=aPos+yeard$</p>
+
+<h3 id="源代码maincpp">源代码<code class="language-plaintext highlighter-rouge">main.cpp</code></h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;glad/glad.h&gt;
+#include &lt;GLFW/glfw3.h&gt;
+#include &lt;iostream&gt;
+#include &lt;cmath&gt;
+</span>
+<span class="kt">int</span> <span class="n">year</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">day</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+<span class="kt">void</span> <span class="nf">framebuffer_size_callback</span><span class="p">(</span><span class="n">GLFWwindow</span><span class="o">*</span> <span class="n">window</span><span class="p">,</span> <span class="kt">int</span> <span class="n">width</span><span class="p">,</span> <span class="kt">int</span> <span class="n">height</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">processInput</span><span class="p">(</span><span class="n">GLFWwindow</span><span class="o">*</span> <span class="n">window</span><span class="p">);</span>
+
+<span class="c1">// settings</span>
+<span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">SCR_WIDTH</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">;</span>
+<span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">SCR_HEIGHT</span> <span class="o">=</span> <span class="mi">768</span><span class="p">;</span>
+
+<span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">vertexShaderSource</span> <span class="o">=</span>
+<span class="s">"#version 330 core</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"layout (location = 0) in vec3 aPos;</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"uniform vec2 yeard;</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"uniform vec2 dayd;</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"void main()</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"{</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"if(aPos.x*aPos.x+ aPos.y * aPos.y+ aPos.x * aPos.y&lt;0.06)</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"   gl_Position = vec4(aPos.x*dayd.x-aPos.y*dayd.y+yeard.x, aPos.y*dayd.x+aPos.x*dayd.y+yeard.y, aPos.z, 1.0);</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"else</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"}</span><span class="se">\0</span><span class="s">"</span><span class="p">;</span>
+<span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">fragmentShaderSource</span> <span class="o">=</span>
+<span class="s">"#version 330 core</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"out vec4 FragColor;</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"void main()</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"{</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);</span><span class="se">\n</span><span class="s">"</span>
+<span class="s">"}</span><span class="se">\n\0</span><span class="s">"</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="c1">//glfw初始化</span>
+	<span class="n">glfwInit</span><span class="p">();</span>
+	<span class="n">glfwWindowHint</span><span class="p">(</span><span class="n">GLFW_CONTEXT_VERSION_MAJOR</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+	<span class="n">glfwWindowHint</span><span class="p">(</span><span class="n">GLFW_CONTEXT_VERSION_MINOR</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+	<span class="n">glfwWindowHint</span><span class="p">(</span><span class="n">GLFW_OPENGL_PROFILE</span><span class="p">,</span> <span class="n">GLFW_OPENGL_CORE_PROFILE</span><span class="p">);</span>
+	<span class="c1">//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);//MacOS</span>
+
+	<span class="c1">//glfw window creation</span>
+	<span class="n">GLFWwindow</span><span class="o">*</span> <span class="n">window</span> <span class="o">=</span> <span class="n">glfwCreateWindow</span><span class="p">(</span><span class="n">SCR_WIDTH</span><span class="p">,</span> <span class="n">SCR_HEIGHT</span><span class="p">,</span> <span class="s">"17341163 WuK"</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">window</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Failed to create GLFW window"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+		<span class="n">glfwTerminate</span><span class="p">();</span>
+		<span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="n">glfwMakeContextCurrent</span><span class="p">(</span><span class="n">window</span><span class="p">);</span>
+	<span class="n">glfwSetFramebufferSizeCallback</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="n">framebuffer_size_callback</span><span class="p">);</span>
+
+	<span class="c1">//glad: load all OpenGL function pointers</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">gladLoadGLLoader</span><span class="p">((</span><span class="n">GLADloadproc</span><span class="p">)</span><span class="n">glfwGetProcAddress</span><span class="p">))</span>
+	<span class="p">{</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Failed to initialize GLAD"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+		<span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="c1">//build and compile 着色器程序</span>
+
+		<span class="c1">//顶点着色器</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">vertexShader</span><span class="p">;</span>
+	<span class="n">vertexShader</span> <span class="o">=</span> <span class="n">glCreateShader</span><span class="p">(</span><span class="n">GL_VERTEX_SHADER</span><span class="p">);</span>
+	<span class="n">glShaderSource</span><span class="p">(</span><span class="n">vertexShader</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">vertexShaderSource</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+	<span class="n">glCompileShader</span><span class="p">(</span><span class="n">vertexShader</span><span class="p">);</span>
+	<span class="c1">//检查顶点着色器是否编译错误</span>
+	<span class="kt">int</span>  <span class="n">success</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="n">infoLog</span><span class="p">[</span><span class="mi">512</span><span class="p">];</span>
+	<span class="n">glGetShaderiv</span><span class="p">(</span><span class="n">vertexShader</span><span class="p">,</span> <span class="n">GL_COMPILE_STATUS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">success</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">success</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="n">glGetShaderInfoLog</span><span class="p">(</span><span class="n">vertexShader</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">infoLog</span><span class="p">);</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"ERROR::SHADER::VERTEX::COMPILATION_FAILED</span><span class="se">\n</span><span class="s">"</span> <span class="o">&lt;&lt;</span> <span class="n">infoLog</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="k">else</span> <span class="p">{</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"vertexShader complie SUCCESS"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="c1">//片段着色器</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">fragmentShader</span><span class="p">;</span>
+	<span class="n">fragmentShader</span> <span class="o">=</span> <span class="n">glCreateShader</span><span class="p">(</span><span class="n">GL_FRAGMENT_SHADER</span><span class="p">);</span>
+	<span class="n">glShaderSource</span><span class="p">(</span><span class="n">fragmentShader</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">fragmentShaderSource</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+	<span class="n">glCompileShader</span><span class="p">(</span><span class="n">fragmentShader</span><span class="p">);</span>
+	<span class="c1">//检查片段着色器是否编译错误</span>
+	<span class="n">glGetShaderiv</span><span class="p">(</span><span class="n">fragmentShader</span><span class="p">,</span> <span class="n">GL_LINK_STATUS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">success</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">success</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">glGetShaderInfoLog</span><span class="p">(</span><span class="n">fragmentShader</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">infoLog</span><span class="p">);</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"ERROR::SHADER::FRAGMENT::COMPILATION_FAILED</span><span class="se">\n</span><span class="s">"</span> <span class="o">&lt;&lt;</span> <span class="n">infoLog</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="k">else</span> <span class="p">{</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"fragmentShader complie SUCCESS"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="c1">//连接到着色器程序</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">shaderProgram</span><span class="p">;</span>
+	<span class="n">shaderProgram</span> <span class="o">=</span> <span class="n">glCreateProgram</span><span class="p">();</span>
+	<span class="n">glAttachShader</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">,</span> <span class="n">vertexShader</span><span class="p">);</span>
+	<span class="n">glAttachShader</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">,</span> <span class="n">fragmentShader</span><span class="p">);</span>
+	<span class="n">glLinkProgram</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">);</span>
+	<span class="c1">//检查片段着色器是否编译错误</span>
+	<span class="n">glGetProgramiv</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">,</span> <span class="n">GL_LINK_STATUS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">success</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">success</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">glGetProgramInfoLog</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">infoLog</span><span class="p">);</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"ERROR::SHADER::PROGRAM::LINKING_FAILED</span><span class="se">\n</span><span class="s">"</span> <span class="o">&lt;&lt;</span> <span class="n">infoLog</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="k">else</span> <span class="p">{</span>
+		<span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"shaderProgram complie SUCCESS"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="c1">//连接后删除</span>
+	<span class="n">glDeleteShader</span><span class="p">(</span><span class="n">vertexShader</span><span class="p">);</span>
+	<span class="n">glDeleteShader</span><span class="p">(</span><span class="n">fragmentShader</span><span class="p">);</span>
+
+	<span class="k">const</span> <span class="kt">double</span> <span class="n">r1</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span><span class="n">r2</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span><span class="n">r3</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span><span class="n">pi</span><span class="o">=</span><span class="n">acos</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">);</span>
+	<span class="k">const</span> <span class="kt">int</span> <span class="n">num</span> <span class="o">=</span> <span class="mi">9</span><span class="p">;</span>
+
+	<span class="kt">float</span> <span class="n">vertices</span><span class="p">[(</span><span class="mi">2</span><span class="o">+</span><span class="n">num</span><span class="p">)</span><span class="o">*</span><span class="mi">3</span><span class="o">*</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+		<span class="mf">0.0</span><span class="n">f</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.1</span><span class="n">f</span><span class="p">,</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">r1</span><span class="o">*</span><span class="n">r1</span><span class="o">-</span><span class="mf">0.01</span><span class="p">),</span>
+		<span class="mf">0.0</span><span class="n">f</span><span class="p">,</span> <span class="mf">0.1</span><span class="n">f</span><span class="p">,</span> <span class="o">-</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r1</span><span class="o">*</span><span class="n">r1</span><span class="o">-</span><span class="mf">0.01</span><span class="p">)</span>
+	<span class="p">};</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">indices</span><span class="p">[</span><span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">*</span> <span class="mi">2</span><span class="p">];</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">num</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="n">vertices</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="n">r1</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">pi</span><span class="o">*</span><span class="n">i</span><span class="o">/</span><span class="n">num</span><span class="p">);</span>
+		<span class="n">vertices</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="n">r1</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">i</span> <span class="o">/</span> <span class="n">num</span><span class="p">);</span>
+		<span class="n">vertices</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">num</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+		<span class="n">vertices</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">num</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">r2</span> <span class="o">/</span> <span class="n">r1</span> <span class="o">*</span> <span class="n">vertices</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">num</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">num</span><span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span><span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">2</span> <span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span><span class="o">+</span> <span class="mi">4</span><span class="p">]</span><span class="o">=</span> <span class="n">j</span><span class="o">+</span><span class="mi">2</span><span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">;</span>
+
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span><span class="o">+</span> <span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">3</span><span class="o">+</span> <span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">num</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span><span class="o">+</span> <span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">4</span><span class="o">+</span> <span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">2</span><span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">num</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">2</span><span class="o">+</span> <span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">num</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">;</span>
+		<span class="n">indices</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">5</span><span class="o">+</span> <span class="n">num</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">num</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">VBO</span><span class="p">;</span>
+	<span class="n">glGenBuffers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">VBO</span><span class="p">);</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">VAO</span><span class="p">;</span>
+	<span class="n">glGenVertexArrays</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">VAO</span><span class="p">);</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">EBO</span><span class="p">;</span>
+	<span class="n">glGenBuffers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">EBO</span><span class="p">);</span>
+
+	<span class="c1">//初始化代码（只运行一次 (除非你的物体频繁改变))</span>
+		<span class="c1">// 1. 绑定VAO</span>
+	<span class="n">glBindVertexArray</span><span class="p">(</span><span class="n">VAO</span><span class="p">);</span>
+	<span class="c1">// 2. 把我们的顶点数组复制到一个顶点缓冲中，供OpenGL使用</span>
+	<span class="n">glBindBuffer</span><span class="p">(</span><span class="n">GL_ARRAY_BUFFER</span><span class="p">,</span> <span class="n">VBO</span><span class="p">);</span>
+	<span class="n">glBufferData</span><span class="p">(</span><span class="n">GL_ARRAY_BUFFER</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">vertices</span><span class="p">),</span> <span class="n">vertices</span><span class="p">,</span> <span class="n">GL_STATIC_DRAW</span><span class="p">);</span>
+	<span class="c1">// 3. 复制我们的索引数组到一个索引缓冲中，供OpenGL使用</span>
+	<span class="n">glBindBuffer</span><span class="p">(</span><span class="n">GL_ELEMENT_ARRAY_BUFFER</span><span class="p">,</span> <span class="n">EBO</span><span class="p">);</span>
+	<span class="n">glBufferData</span><span class="p">(</span><span class="n">GL_ELEMENT_ARRAY_BUFFER</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">indices</span><span class="p">),</span> <span class="n">indices</span><span class="p">,</span> <span class="n">GL_STATIC_DRAW</span><span class="p">);</span>
+	<span class="c1">// 4. 设定顶点属性指针</span>
+	<span class="n">glVertexAttribPointer</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">GL_FLOAT</span><span class="p">,</span> <span class="n">GL_FALSE</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">float</span><span class="p">),</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="mi">0</span><span class="p">);</span>
+	<span class="n">glEnableVertexAttribArray</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+
+	<span class="n">glBindBuffer</span><span class="p">(</span><span class="n">GL_ARRAY_BUFFER</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="n">glBindVertexArray</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+
+	<span class="c1">//线框模式wireframe</span>
+	<span class="n">glPolygonMode</span><span class="p">(</span><span class="n">GL_FRONT_AND_BACK</span><span class="p">,</span> <span class="n">GL_LINE</span><span class="p">);</span>
+
+	<span class="c1">// 渲染循环</span>
+	<span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">glfwWindowShouldClose</span><span class="p">(</span><span class="n">window</span><span class="p">))</span>
+	<span class="p">{</span>
+		<span class="c1">// 输入</span>
+		<span class="n">processInput</span><span class="p">(</span><span class="n">window</span><span class="p">);</span>
+
+		<span class="c1">// 渲染指令</span>
+		<span class="n">glClearColor</span><span class="p">(</span><span class="mf">0.2</span><span class="n">f</span><span class="p">,</span> <span class="mf">0.3</span><span class="n">f</span><span class="p">,</span> <span class="mf">0.3</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="n">f</span><span class="p">);</span>
+		<span class="n">glClear</span><span class="p">(</span><span class="n">GL_COLOR_BUFFER_BIT</span><span class="p">);</span>
+
+		<span class="n">glUseProgram</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">);</span>
+		<span class="n">glBindVertexArray</span><span class="p">(</span><span class="n">VAO</span><span class="p">);</span>
+		<span class="n">glDrawElements</span><span class="p">(</span><span class="n">GL_TRIANGLES</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span><span class="o">/</span><span class="k">sizeof</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">GL_UNSIGNED_INT</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+
+		<span class="n">glUseProgram</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">);</span><span class="c1">//通过glUniform4f函数设置uniform值</span>
+		<span class="n">glUniform2f</span><span class="p">(</span><span class="n">glGetUniformLocation</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">,</span> <span class="s">"yeard"</span><span class="p">),</span><span class="n">r3</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">pi</span><span class="o">*</span><span class="n">year</span><span class="o">/</span><span class="mi">360</span><span class="p">),</span><span class="n">r3</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">pi</span><span class="o">*</span><span class="n">year</span><span class="o">/</span><span class="mi">360</span><span class="p">));</span>
+		<span class="n">glUniform2f</span><span class="p">(</span><span class="n">glGetUniformLocation</span><span class="p">(</span><span class="n">shaderProgram</span><span class="p">,</span> <span class="s">"dayd"</span><span class="p">),</span> <span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">day</span> <span class="o">/</span> <span class="mi">360</span><span class="p">),</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">day</span> <span class="o">/</span> <span class="mi">360</span><span class="p">));</span>
+
+		<span class="c1">// 检查并调用事件，交换缓冲</span>
+		<span class="n">glfwSwapBuffers</span><span class="p">(</span><span class="n">window</span><span class="p">);</span>
+		<span class="n">glfwPollEvents</span><span class="p">();</span>
+	<span class="p">}</span>
+	<span class="n">glDeleteVertexArrays</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">VAO</span><span class="p">);</span>
+	<span class="n">glDeleteBuffers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">VBO</span><span class="p">);</span>
+	<span class="n">glDeleteBuffers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">EBO</span><span class="p">);</span>
+
+	<span class="n">glfwTerminate</span><span class="p">();</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="nf">framebuffer_size_callback</span><span class="p">(</span><span class="n">GLFWwindow</span><span class="o">*</span> <span class="n">window</span><span class="p">,</span> <span class="kt">int</span> <span class="n">width</span><span class="p">,</span> <span class="kt">int</span> <span class="n">height</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">glViewport</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="nf">processInput</span><span class="p">(</span><span class="n">GLFWwindow</span><span class="o">*</span> <span class="n">window</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="kt">int</span> <span class="n">dday</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">dyear</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">glfwGetKey</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="n">GLFW_KEY_D</span><span class="p">)</span> <span class="o">==</span> <span class="n">GLFW_PRESS</span><span class="p">)</span>
+		<span class="n">dday</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">glfwGetKey</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="n">GLFW_KEY_Y</span><span class="p">)</span> <span class="o">==</span> <span class="n">GLFW_PRESS</span><span class="p">)</span>
+		<span class="n">dyear</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">glfwGetKey</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="n">GLFW_KEY_LEFT_SHIFT</span><span class="p">)</span> <span class="o">==</span> <span class="n">GLFW_PRESS</span><span class="o">||</span><span class="n">glfwGetKey</span><span class="p">(</span><span class="n">window</span><span class="p">,</span><span class="n">GLFW_KEY_RIGHT_SHIFT</span><span class="p">)</span> <span class="o">==</span> <span class="n">GLFW_PRESS</span><span class="p">)</span><span class="c1">//是否按下了返回键</span>
+		<span class="n">dday</span> <span class="o">=</span> <span class="mi">360</span> <span class="o">-</span> <span class="n">dday</span><span class="p">,</span> <span class="n">dyear</span> <span class="o">=</span> <span class="mi">360</span> <span class="o">-</span> <span class="n">dyear</span><span class="p">;</span>
+	<span class="n">day</span> <span class="o">=</span> <span class="p">(</span><span class="n">day</span> <span class="o">+</span> <span class="n">dday</span><span class="p">)</span> <span class="o">%</span> <span class="mi">360</span><span class="p">;</span>
+	<span class="n">year</span> <span class="o">=</span> <span class="p">(</span><span class="n">year</span> <span class="o">+</span> <span class="n">dyear</span><span class="p">)</span> <span class="o">%</span> <span class="mi">360</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="starc">star.c</h2>
+
+<p>一开始没有仔细阅读老师要求（「使用着色器编程」），因此先用 OpenGL 的固定管线实现了要求（简单了好多啊）。这一版是在 Linux 下开发的，得到的生成文件是<code class="language-plaintext highlighter-rouge">star.out</code>。后来我在 Windows 下重新编译了这段代码得到了<code class="language-plaintext highlighter-rouge">star.exe</code>。</p>
+
+<p>运行<code class="language-plaintext highlighter-rouge">star.exe</code>结果如下。</p>
+
+<p><img src="/assets/image/2019-09-30-1.jpg" alt="运行结果" /></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/*
+gcc star.c -o star.exe -lGL -lGLU -lglut
+./star.exe
+*/</span>
+<span class="cp">#include &lt;GL/glut.h&gt;
+</span><span class="kt">int</span> <span class="n">year</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">day</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="kt">void</span> <span class="nf">display</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">glClear</span><span class="p">(</span><span class="n">GL_COLOR_BUFFER_BIT</span><span class="p">);</span> <span class="c1">//清空颜色缓冲区</span>
+	<span class="n">glPushMatrix</span><span class="p">();</span>				  <span class="c1">//压栈</span>
+	<span class="n">glColor3f</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">.</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>		  <span class="c1">//恒星是橙黄色的</span>
+	<span class="n">glutWireSphere</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">16</span><span class="p">);</span>	<span class="c1">//绘制恒星</span>
+	<span class="n">glRotatef</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>	 <span class="c1">//沿y轴旋转</span>
+	<span class="n">glTranslatef</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>		  <span class="c1">//移动画笔，画行星</span>
+	<span class="n">glRotatef</span><span class="p">(</span><span class="n">day</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>	  <span class="c1">//沿y轴旋转</span>
+	<span class="n">glColor3f</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">.</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>		  <span class="c1">//行星是蔚蓝色的</span>
+	<span class="n">glutWireSphere</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">12</span><span class="p">);</span>	<span class="c1">//绘制行星</span>
+	<span class="n">glPopMatrix</span><span class="p">();</span>				  <span class="c1">//弹栈，恢复绘制坐标</span>
+	<span class="n">glutSwapBuffers</span><span class="p">();</span>
+	<span class="n">glFlush</span><span class="p">();</span> <span class="c1">//刷新窗口以显示当前绘制图形</span>
+<span class="p">}</span>
+<span class="kt">void</span> <span class="nf">reshape</span><span class="p">(</span><span class="kt">int</span> <span class="n">w</span><span class="p">,</span> <span class="kt">int</span> <span class="n">h</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">glViewport</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">GLsizei</span><span class="p">)</span><span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="n">GLsizei</span><span class="p">)</span><span class="n">h</span><span class="p">);</span> <span class="c1">//设置机口</span>
+	<span class="n">glMatrixMode</span><span class="p">(</span><span class="n">GL_PROJECTION</span><span class="p">);</span>			  <span class="c1">//指定哪一个矩阵是当前矩阵</span>
+	<span class="n">glLoadIdentity</span><span class="p">();</span>
+	<span class="n">gluPerspective</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="p">(</span><span class="n">GLfloat</span><span class="p">)</span><span class="n">w</span> <span class="o">/</span> <span class="p">(</span><span class="n">GLfloat</span><span class="p">)</span><span class="n">h</span><span class="p">,</span> <span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">);</span> <span class="c1">//透视投影矩阵(fovy,aspect,zNear,zFar);</span>
+	<span class="n">glMatrixMode</span><span class="p">(</span><span class="n">GL_MODELVIEW</span><span class="p">);</span>
+	<span class="n">glLoadIdentity</span><span class="p">();</span>
+	<span class="n">gluLookAt</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span> <span class="c1">//观察者位置，观察者朝向的位置，观察者头顶位置</span>
+<span class="p">}</span>
+<span class="kt">void</span> <span class="nf">keyboard</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">key</span><span class="p">,</span> <span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">y</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">key</span> <span class="o">==</span> <span class="sc">'d'</span><span class="p">)</span>
+		<span class="n">day</span> <span class="o">=</span> <span class="p">(</span><span class="n">day</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span> <span class="o">%</span> <span class="mi">360</span><span class="p">;</span>
+	<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">key</span> <span class="o">==</span> <span class="sc">'D'</span><span class="p">)</span> <span class="c1">// 大写情况下是逆向的</span>
+		<span class="n">day</span> <span class="o">=</span> <span class="p">(</span><span class="n">day</span> <span class="o">+</span> <span class="mi">350</span><span class="p">)</span> <span class="o">%</span> <span class="mi">360</span><span class="p">;</span>
+	<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">key</span> <span class="o">==</span> <span class="sc">'y'</span><span class="p">)</span>
+		<span class="n">year</span> <span class="o">=</span> <span class="p">(</span><span class="n">year</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span> <span class="o">%</span> <span class="mi">360</span><span class="p">;</span>
+	<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">key</span> <span class="o">==</span> <span class="sc">'Y'</span><span class="p">)</span> <span class="c1">// 大写情况下是逆向的</span>
+		<span class="n">year</span> <span class="o">=</span> <span class="p">(</span><span class="n">year</span> <span class="o">+</span> <span class="mi">350</span><span class="p">)</span> <span class="o">%</span> <span class="mi">360</span><span class="p">;</span>
+	<span class="k">else</span>
+		<span class="k">return</span><span class="p">;</span>
+	<span class="n">glutPostRedisplay</span><span class="p">();</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">glutInit</span><span class="p">(</span><span class="o">&amp;</span><span class="n">argc</span><span class="p">,</span> <span class="n">argv</span><span class="p">);</span>
+	<span class="n">glutInitDisplayMode</span><span class="p">(</span><span class="n">GLUT_RGB</span> <span class="o">|</span> <span class="n">GLUT_SINGLE</span><span class="p">);</span> <span class="c1">//缓存模式</span>
+	<span class="n">glutInitWindowSize</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="mi">600</span><span class="p">);</span>				 <span class="c1">//显示框的大小</span>
+	<span class="n">glutInitWindowPosition</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>			 <span class="c1">//确定显示框左上角的位置</span>
+	<span class="n">glutCreateWindow</span><span class="p">(</span><span class="s">"17341163_吴坎_CG_HW3"</span><span class="p">);</span>
+	<span class="n">glClearColor</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span> <span class="c1">// 初始化</span>
+	<span class="n">glShadeModel</span><span class="p">(</span><span class="n">GL_FLAT</span><span class="p">);</span>	<span class="c1">//选择平面明暗模式或光滑明暗模式</span>
+	<span class="n">glutDisplayFunc</span><span class="p">(</span><span class="n">display</span><span class="p">);</span>
+	<span class="n">glutReshapeFunc</span><span class="p">(</span><span class="n">reshape</span><span class="p">);</span>
+	<span class="n">glutKeyboardFunc</span><span class="p">(</span><span class="n">keyboard</span><span class="p">);</span>
+	<span class="n">glutMainLoop</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+:ET

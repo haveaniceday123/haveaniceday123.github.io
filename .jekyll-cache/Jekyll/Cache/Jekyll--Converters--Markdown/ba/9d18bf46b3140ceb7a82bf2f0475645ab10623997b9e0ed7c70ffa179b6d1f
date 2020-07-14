@@ -1,0 +1,4 @@
+I"D<p>```haskell
+module HaskellStore where
+import Text.Printf</p>
+:ET

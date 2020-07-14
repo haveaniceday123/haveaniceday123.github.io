@@ -1,0 +1,328 @@
+I".�<h2 id="文法推导"><a href="http://soj.acmm.club/show_problem.php?pid=1000&amp;cid=2835">文法推导</a></h2>
+
+<p>Time Limit: 1sec Memory Limit: 256MB</p>
+
+<h3 id="description">Description</h3>
+
+\[E\to TE' \\
+E'\to +TE' \vert \epsilon \\
+T\to FT' \\
+T'\to *FT' \vert \epsilon \\
+F\to (E) \vert \mathbf{id}\]
+
+<p>依据教材第 4.4 节文法 4.28，将其中的 id 替换为 0 到 9 的数字，对于输入的字符串，输出其最左推导的过程。如果输入的字符串不符合文法的定义，则输出”Syntax Error”。</p>
+
+<h3 id="input">Input</h3>
+
+<p>有多组测试数据，每组数据一行，包含一个字符串，字符串只包含有文法中的终端符号。字符串长度不超过 100。</p>
+
+<p>输入以#号结束。</p>
+
+<h3 id="output">Output</h3>
+
+<p>对于每组数据，如果输入字符串符合文法的定义，输出其最左推导的过程，每步推导占一行；否则，输出“Syntax Error”。每组数据输出结束后再输出一个空行。</p>
+
+<h3 id="sample-input">Sample Input</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>3+5<span class="k">*</span>0
+1<span class="k">*</span>2<span class="k">*</span>
+<span class="c">#</span>
+</code></pre></div></div>
+
+<h3 id="sample-output">Sample Output</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>E
+TE<span class="s1">'
+FT'</span>E<span class="s1">'
+3T'</span>E<span class="s1">'
+3E'</span>
+3+TE<span class="s1">'
+3+FT'</span>E<span class="s1">'
+3+5T'</span>E<span class="s1">'
+3+5*FT'</span>E<span class="s1">'
+3+5*0T'</span>E<span class="s1">'
+3+5*0E'</span>
+3+5<span class="k">*</span>0
+
+Syntax Error
+
+</code></pre></div></div>
+
+<h3 id="solution">Solution</h3>
+
+<p>因为看漏了文法中的括号，导致无限 WA、RE、TLE…老年人该看看眼睛了。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;bits/stdc++.h&gt;
+#define SE "Syntax Error\n"
+</span><span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+<span class="k">struct</span> <span class="nc">Rule</span>
+<span class="p">{</span>
+    <span class="kt">char</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">id</span><span class="p">;</span>
+    <span class="n">string</span> <span class="n">lc</span><span class="p">,</span> <span class="n">rc</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="n">string</span> <span class="nf">work</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">b</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">e</span><span class="p">,</span> <span class="n">string</span> <span class="n">r</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">static</span> <span class="n">map</span><span class="o">&lt;</span><span class="n">string</span><span class="p">,</span> <span class="n">Rule</span><span class="o">&gt;</span> <span class="n">mp</span><span class="p">{</span>
+        <span class="p">{</span><span class="s">"E"</span><span class="p">,</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"T"</span><span class="p">,</span> <span class="s">"E'"</span><span class="p">}},</span>
+        <span class="p">{</span><span class="s">"E'"</span><span class="p">,</span> <span class="p">{</span><span class="sc">'+'</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"T"</span><span class="p">,</span> <span class="s">"E'"</span><span class="p">}},</span>
+        <span class="p">{</span><span class="s">"T"</span><span class="p">,</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"F"</span><span class="p">,</span> <span class="s">"T'"</span><span class="p">}},</span>
+        <span class="p">{</span><span class="s">"T'"</span><span class="p">,</span> <span class="p">{</span><span class="sc">'*'</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"F"</span><span class="p">,</span> <span class="s">"T'"</span><span class="p">}},</span>
+        <span class="p">{</span><span class="s">"F"</span><span class="p">,</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"E"</span><span class="p">,</span> <span class="s">"E"</span><span class="p">}}};</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">id</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">b</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="n">isdigit</span><span class="p">(</span><span class="o">*</span><span class="n">b</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">r</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span> <span class="o">+</span> <span class="n">string</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">b</span><span class="p">)</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">b</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">||</span> <span class="o">*</span><span class="n">b</span> <span class="o">!=</span> <span class="sc">'('</span> <span class="o">||</span> <span class="o">*</span><span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="sc">')'</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">SE</span><span class="p">;</span>
+        <span class="n">string</span> <span class="n">s</span> <span class="o">=</span> <span class="n">work</span><span class="p">(</span><span class="n">b</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">e</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">lc</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="n">SE</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">SE</span><span class="p">;</span>
+        <span class="n">string</span> <span class="n">ans</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">p</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">q</span> <span class="o">&lt;</span> <span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">q</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">q</span><span class="p">]</span> <span class="o">==</span> <span class="sc">'\n'</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">ans</span> <span class="o">+=</span> <span class="s">"("</span> <span class="o">+</span> <span class="n">s</span><span class="p">.</span><span class="n">substr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="o">-</span> <span class="n">p</span><span class="p">)</span> <span class="o">+</span> <span class="s">")</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">ans</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">b</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">eps</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">b</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SE</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">b</span> <span class="o">&amp;&amp;</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span> <span class="o">&amp;&amp;</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span> <span class="o">!=</span> <span class="o">*</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SE</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span><span class="p">);</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">e</span> <span class="o">-</span> <span class="n">b</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">string</span> <span class="n">lc</span> <span class="o">=</span> <span class="n">work</span><span class="p">(</span><span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span> <span class="o">?</span> <span class="n">b</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">:</span> <span class="n">b</span><span class="p">,</span> <span class="n">b</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">lc</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">lc</span> <span class="o">==</span> <span class="n">SE</span><span class="p">)</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="n">string</span> <span class="n">rc</span> <span class="o">=</span> <span class="n">work</span><span class="p">(</span><span class="n">b</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">rc</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">rc</span> <span class="o">==</span> <span class="n">SE</span><span class="p">)</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="n">string</span> <span class="n">ans</span> <span class="o">=</span> <span class="p">(</span><span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span> <span class="o">?</span> <span class="n">string</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span><span class="p">)</span> <span class="o">:</span> <span class="s">""</span><span class="p">)</span> <span class="o">+</span> <span class="n">r</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">last</span><span class="p">;</span>
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">p</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">q</span> <span class="o">&lt;</span> <span class="n">lc</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">q</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">lc</span><span class="p">[</span><span class="n">q</span><span class="p">]</span> <span class="o">==</span> <span class="sc">'\n'</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">last</span> <span class="o">=</span> <span class="p">(</span><span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span> <span class="o">?</span> <span class="n">string</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">prefix</span><span class="p">)</span> <span class="o">:</span> <span class="s">""</span><span class="p">)</span> <span class="o">+</span> <span class="n">lc</span><span class="p">.</span><span class="n">substr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="o">-</span> <span class="n">p</span><span class="p">);</span>
+                <span class="n">ans</span> <span class="o">+=</span> <span class="n">last</span> <span class="o">+</span> <span class="n">mp</span><span class="p">[</span><span class="n">r</span><span class="p">].</span><span class="n">rc</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">p</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">first</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">q</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">q</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">rc</span><span class="p">[</span><span class="n">q</span><span class="p">]</span> <span class="o">==</span> <span class="sc">'\n'</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">first</span><span class="p">)</span>
+                    <span class="n">ans</span> <span class="o">+=</span> <span class="n">last</span> <span class="o">+</span> <span class="n">rc</span><span class="p">.</span><span class="n">substr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="o">-</span> <span class="n">p</span><span class="p">)</span> <span class="o">+</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+                <span class="k">else</span>
+                    <span class="n">first</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">ans</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">SE</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">char</span> <span class="n">s</span><span class="p">[</span><span class="mi">127</span><span class="p">];</span> <span class="n">scanf</span><span class="p">(</span><span class="s">"%s"</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="o">!=</span> <span class="n">EOF</span> <span class="o">&amp;&amp;</span> <span class="n">strcmp</span><span class="p">(</span><span class="s">"#"</span><span class="p">,</span> <span class="n">s</span><span class="p">);)</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">work</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span> <span class="o">+</span> <span class="n">strlen</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="s">"E"</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="中缀转后缀"><a href="http://soj.acmm.club/show_problem.php?pid=1001&amp;cid=2835">中缀转后缀</a></h2>
+
+<p>Time Limit: 1sec Memory Limit: 256MB</p>
+
+<h3 id="description-1">Description</h3>
+
+<p>输入一个中缀算术表达式 S，S 中的操作数为 0 到 9，只含+，-和*，/运算，也可能含有括号()，运算符的计算顺序和实际四则运算的计算顺序相同. 请输出与 S 等价的后缀表达式，注意输出结果不要含有多余的括号或空格.</p>
+
+<h3 id="input-1">Input</h3>
+
+<p>输入有多组数据.</p>
+
+<p>每组数据是一个中缀表达式 S，S 的长度不超过 50. 输入的 S 保证合法，而且不包含多余的空格或制表符.</p>
+
+<p>输入以#号结束.</p>
+
+<h3 id="output-1">Output</h3>
+
+<p>对于每个中缀表达式，输出转换后的后缀表达式，每个输出占一行.</p>
+
+<h3 id="sample-input-1">Sample Input</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1
+1+2<span class="k">*</span>3
+<span class="o">(</span>1-2<span class="o">)</span>/3
+<span class="c">#</span>
+</code></pre></div></div>
+
+<h3 id="sample-output-1">Sample Output</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1
+123<span class="k">*</span>+
+12-3/
+</code></pre></div></div>
+
+<h3 id="solution-1">Solution</h3>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;bits/stdc++.h&gt;
+</span><span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">s_to_infix</span><span class="p">(</span><span class="k">const</span> <span class="n">string</span> <span class="o">&amp;</span><span class="n">s</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">ans</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="s">""</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+		<span class="p">{</span>
+			<span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">&amp;&amp;</span> <span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+				<span class="n">ans</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">+=</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+			<span class="o">--</span><span class="n">i</span><span class="p">;</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span>
+		<span class="n">ans</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">+=</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="n">ans</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">infix_to_postifix</span><span class="p">(</span><span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">v</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">ans</span><span class="p">,</span> <span class="n">op</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="o">&amp;</span><span class="n">s</span> <span class="o">:</span> <span class="n">v</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">back</span><span class="p">()))</span>
+			<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+		<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span> <span class="o">||</span> <span class="n">s</span> <span class="o">==</span> <span class="s">"("</span><span class="p">)</span>
+			<span class="n">op</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+		<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="s">")"</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="k">for</span> <span class="p">(;</span> <span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"("</span><span class="p">;</span> <span class="n">op</span><span class="p">.</span><span class="n">pop_back</span><span class="p">())</span>
+				<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">());</span>
+			<span class="n">op</span><span class="p">.</span><span class="n">pop_back</span><span class="p">();</span>
+		<span class="p">}</span>
+		<span class="k">else</span>
+		<span class="p">{</span>
+			<span class="k">for</span> <span class="p">(;</span> <span class="o">!</span><span class="n">op</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span> <span class="o">&amp;&amp;</span> <span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"("</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"+"</span> <span class="o">&amp;&amp;</span> <span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"-"</span> <span class="o">||</span> <span class="n">s</span> <span class="o">!=</span> <span class="s">"*"</span> <span class="o">&amp;&amp;</span> <span class="n">s</span> <span class="o">!=</span> <span class="s">"/"</span><span class="p">);</span> <span class="n">op</span><span class="p">.</span><span class="n">pop_back</span><span class="p">())</span>
+				<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">());</span>
+			<span class="n">op</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="n">ans</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="n">ans</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span> <span class="n">op</span><span class="p">.</span><span class="n">rbegin</span><span class="p">(),</span> <span class="n">op</span><span class="p">.</span><span class="n">rend</span><span class="p">());</span>
+	<span class="k">return</span> <span class="n">ans</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="k">for</span> <span class="p">(</span><span class="n">string</span> <span class="n">s</span><span class="p">;</span> <span class="n">cin</span> <span class="o">&gt;&gt;</span> <span class="n">s</span> <span class="o">&amp;&amp;</span> <span class="n">s</span> <span class="o">!=</span> <span class="s">"#"</span><span class="p">;</span> <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">)</span>
+		<span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="o">&amp;</span><span class="n">t</span> <span class="o">:</span> <span class="n">infix_to_postifix</span><span class="p">(</span><span class="n">s_to_infix</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span>
+			<span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">t</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="表达式求值"><a href="http://soj.acmm.club/show_problem.php?pid=1002&amp;cid=2835">表达式求值</a></h2>
+
+<p>Time Limit: 1sec Memory Limit: 256MB</p>
+
+<h3 id="description-2">Description</h3>
+
+<p>输入中缀算术表达式 S，S 中的操作数为非负整数，只含+，-和*，/运算，也可能含有括号()，运算符的计算顺序和实际四则运算的计算顺序相同. 输出表达式 S 的值. 注意除法运算只取整数部分，例如 1/2=0.</p>
+
+<h3 id="input-2">Input</h3>
+
+<p>输入有多组数据.</p>
+
+<p>每组数据是一个算术表达式 S，S 的长度不超过 100. 输入的 S 保证合法，而且不包含多余的空格或制表符. S 的操作数、中间结果和最终结果都不会超过 int 类型的范围，也不会出现除数为 0 的情况.</p>
+
+<p>输入以#号结束.</p>
+
+<h3 id="output-2">Output</h3>
+
+<p>对于每个算术表达式 S，输出 S 的值，每个输出占一行.</p>
+
+<h3 id="sample-input-2">Sample Input</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1
+478+522
+<span class="o">(</span>478+522<span class="o">)</span><span class="k">*</span>10
+1/2-1
+<span class="c">#</span>
+</code></pre></div></div>
+
+<h3 id="sample-output-2">Sample Output</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1
+1000
+10000
+<span class="nt">-1</span>
+</code></pre></div></div>
+
+<h3 id="solution-2">Solution</h3>
+
+<p>代 码 复 用</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;bits/stdc++.h&gt;
+</span><span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">s_to_infix</span><span class="p">(</span><span class="k">const</span> <span class="n">string</span> <span class="o">&amp;</span><span class="n">s</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">ans</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="s">""</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+		<span class="p">{</span>
+			<span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">&amp;&amp;</span> <span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+				<span class="n">ans</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">+=</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+			<span class="o">--</span><span class="n">i</span><span class="p">;</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span>
+		<span class="n">ans</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">+=</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="n">ans</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">infix_to_postifix</span><span class="p">(</span><span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">v</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">ans</span><span class="p">,</span> <span class="n">op</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="o">&amp;</span><span class="n">s</span> <span class="o">:</span> <span class="n">v</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">back</span><span class="p">()))</span>
+			<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+		<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span> <span class="o">||</span> <span class="n">s</span> <span class="o">==</span> <span class="s">"("</span><span class="p">)</span>
+			<span class="n">op</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+		<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="s">")"</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="k">for</span> <span class="p">(;</span> <span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"("</span><span class="p">;</span> <span class="n">op</span><span class="p">.</span><span class="n">pop_back</span><span class="p">())</span>
+				<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">());</span>
+			<span class="n">op</span><span class="p">.</span><span class="n">pop_back</span><span class="p">();</span>
+		<span class="p">}</span>
+		<span class="k">else</span>
+		<span class="p">{</span>
+			<span class="k">for</span> <span class="p">(;</span> <span class="o">!</span><span class="n">op</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span> <span class="o">&amp;&amp;</span> <span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"("</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"+"</span> <span class="o">&amp;&amp;</span> <span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">!=</span> <span class="s">"-"</span> <span class="o">||</span> <span class="n">s</span> <span class="o">!=</span> <span class="s">"*"</span> <span class="o">&amp;&amp;</span> <span class="n">s</span> <span class="o">!=</span> <span class="s">"/"</span><span class="p">);</span> <span class="n">op</span><span class="p">.</span><span class="n">pop_back</span><span class="p">())</span>
+				<span class="n">ans</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">op</span><span class="p">.</span><span class="n">back</span><span class="p">());</span>
+			<span class="n">op</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="n">ans</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="n">ans</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span> <span class="n">op</span><span class="p">.</span><span class="n">rbegin</span><span class="p">(),</span> <span class="n">op</span><span class="p">.</span><span class="n">rend</span><span class="p">());</span>
+	<span class="k">return</span> <span class="n">ans</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="nf">postfix_to_int</span><span class="p">(</span><span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">v</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">stak</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="o">&amp;</span><span class="n">s</span> <span class="o">:</span> <span class="n">v</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">isdigit</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+		<span class="p">{</span>
+			<span class="n">stak</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">stoi</span><span class="p">(</span><span class="n">s</span><span class="p">));</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span>
+		<span class="kt">int</span> <span class="n">b</span> <span class="o">=</span> <span class="n">stak</span><span class="p">.</span><span class="n">back</span><span class="p">();</span>
+		<span class="n">stak</span><span class="p">.</span><span class="n">pop_back</span><span class="p">();</span>
+		<span class="kt">int</span> <span class="n">a</span> <span class="o">=</span> <span class="n">stak</span><span class="p">.</span><span class="n">back</span><span class="p">();</span>
+		<span class="n">stak</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">=</span> <span class="n">s</span> <span class="o">==</span> <span class="s">"+"</span> <span class="o">?</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="o">:</span> <span class="n">s</span> <span class="o">==</span> <span class="s">"-"</span> <span class="o">?</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span> <span class="o">:</span> <span class="n">s</span> <span class="o">==</span> <span class="s">"*"</span> <span class="o">?</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span> <span class="o">:</span> <span class="n">a</span> <span class="o">/</span> <span class="n">b</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="n">stak</span><span class="p">.</span><span class="n">back</span><span class="p">();</span>
+<span class="p">}</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="k">for</span> <span class="p">(</span><span class="n">string</span> <span class="n">s</span><span class="p">;</span> <span class="n">cin</span> <span class="o">&gt;&gt;</span> <span class="n">s</span> <span class="o">&amp;&amp;</span> <span class="n">s</span> <span class="o">!=</span> <span class="s">"#"</span><span class="p">;)</span>
+		<span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">postfix_to_int</span><span class="p">(</span><span class="n">infix_to_postifix</span><span class="p">(</span><span class="n">s_to_infix</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+:ET

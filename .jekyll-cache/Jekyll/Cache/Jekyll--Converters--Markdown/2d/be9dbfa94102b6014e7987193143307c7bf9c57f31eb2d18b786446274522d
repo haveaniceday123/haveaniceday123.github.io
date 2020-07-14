@@ -1,0 +1,10 @@
+I"<blockquote>
+  <p>矩阵$A$，$B$和向量$\vec{x}$按下面定义元素：</p>
+
+  <ul>
+    <li>$a_{ij}=\frac{i-0.1\times j+1}{i+j+1}$</li>
+    <li>$b_{ij}=\frac{(j-0.2\times i+1)(i+j+1)}{i\times i+j\times j+1}$</li>
+    <li>$x_i=\frac{i}{i\times i+1}$</li>
+  </ul>
+</blockquote>
+:ET

@@ -1,0 +1,107 @@
+I"�<h2 id="实验环境">实验环境</h2>
+
+<p>自己购买的 1C2G 腾讯云服务器。</p>
+
+<p>CentOS 7.6。</p>
+
+<h2 id="实验过程">实验过程</h2>
+
+<p>以下操作均在 root 账号下进行。</p>
+
+<h3 id="修改宿主的-ssh-端口">修改宿主的 SSH 端口</h3>
+
+<p>修改宿主的 SSH 端口，使用非 22  端口，这样以后从自建 gitlab 上拉取代码可以少费些功夫了。此外，管理用的宿主 SSH 端口改成别的也更安全。</p>
+
+<p>修改 SSHD 配置文件 <code class="language-plaintext highlighter-rouge">/etc/ssh/sshd_config</code>，将其中的  <code class="language-plaintext highlighter-rouge">#Port 22</code> 去掉注释并改为其它端口号（比如我改成<code class="language-plaintext highlighter-rouge">Port 2222</code>）。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service sshd restart
+semanage port <span class="nt">-m</span> <span class="nt">-t</span> ssh_port_t <span class="nt">-p</span> tcp 2222 <span class="c"># 未安装semanage可忽略</span>
+</code></pre></div></div>
+
+<h3 id="配置-swap-交换分区">配置 SWAP 交换分区</h3>
+
+<p>由于 GitLab 较为消耗资源，我们需要先创建交换分区，以降低物理内存的压力。在实际生产环境中，如果服务器配置够高，则不必配置交换分区。（我 好 穷 啊</p>
+
+<p>新建 8 GB 大小的交换分区（一般来说 2 GB 就够了，可以自己改下面的大小）：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">dd </span><span class="k">if</span><span class="o">=</span>/dev/zero <span class="nv">of</span><span class="o">=</span>/root/swapfile <span class="nv">bs</span><span class="o">=</span>1M <span class="nv">count</span><span class="o">=</span>8192
+</code></pre></div></div>
+
+<p>使用 SWAP 分区专用的格式化命令<code class="language-plaintext highlighter-rouge">mkswap</code>，对新建的主分区进行格式化操作：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mkswap /root/swapfile
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>swapon /root/swapfile
+</code></pre></div></div>
+
+<p>为了能够让新的交换分区设备在重启后依然生效，需要将相关信息写入到配置文件中。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s2">"/root/swapfile swap swap defaults 0 0"</span> <span class="o">&gt;&gt;</span> /etc/fstab
+</code></pre></div></div>
+
+<h3 id="安装-docker">安装 docker</h3>
+
+<p>参考 <a href="https://www.runoob.com/docker/centos-docker-install.html">CentOS Docker 安装</a></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>yum update <span class="nt">-y</span>
+yum-config-manager <span class="nt">--add-repo</span> https://download.docker.com/linux/centos/docker-ce.repo
+yum <span class="nb">install</span> <span class="nt">-y</span> docker-ce
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>systemctl start docker
+</code></pre></div></div>
+
+<p>运行下面指令，拉取 gitlab 镜像并运行。为了方便日后备份维护，这里把三个重要的目录挂载进容器。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker pull gitlab/gitlab-ce
+docker run <span class="se">\</span>
+    <span class="nt">--detach</span> <span class="se">\</span>
+    <span class="nt">--hostname</span> gitlab.wu-kan.cn <span class="se">\</span>
+    <span class="nt">--name</span> gitlab-ce <span class="se">\</span>
+    <span class="nt">--restart</span> always <span class="se">\</span>
+    <span class="nt">--publish</span> 443:443 <span class="se">\</span>
+    <span class="nt">--publish</span> 80:80 <span class="se">\</span>
+    <span class="nt">--publish</span> 22:22 <span class="se">\</span>
+    <span class="nt">--volume</span> /root/gitlab/etc/gitlab:/etc/gitlab <span class="se">\</span>
+    <span class="nt">--volume</span> /root/gitlab/var/log/gitlab:/var/log/gitlab <span class="se">\</span>
+    <span class="nt">--volume</span> /root/gitlab/var/opt/gitlab:/var/opt/gitlab <span class="se">\</span>
+    <span class="nt">--env</span> <span class="nv">GITLAB_OMNIBUS_CONFIG</span><span class="o">=</span><span class="se">\</span>
+<span class="s2">"external_url 'https://gitlab.wu-kan.cn/'
+letsencrypt['enable'] = true
+letsencrypt['contact_emails'] = ['i@wu-kan.cn']
+gitlab_pages['enable'] = true
+pages_external_url 'http://gitlab-pages.wu-kan.cn/'"</span> <span class="se">\</span>
+    gitlab/gitlab-ce
+</code></pre></div></div>
+
+<p>运行 <code class="language-plaintext highlighter-rouge">docker container ls</code>，可以看到下面容器的状态是<code class="language-plaintext highlighter-rouge">(health: starting)</code>。等这个状态变成 <code class="language-plaintext highlighter-rouge">(healthy)</code> 时则说明已经部署完成，可以访问了。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CONTAINER ID        IMAGE               COMMAND             CREATED              STATUS                                 PORTS
+                                                       NAMES
+1a6c9c5ea464        gitlab/gitlab-ce    <span class="s2">"/assets/wrapper"</span>   About a minute ago   Up About a minute <span class="o">(</span>health: starting<span class="o">)</span>   0.0.0.0:22-&gt;22/tcp, 0.0.0.0:80-&gt;80/tcp, 0.0.0.0:443-&gt;443/tcp   gitlab-ce
+</code></pre></div></div>
+
+<p>运行的时候配置过低的话（比如我），会出现终端卡死。进入云服务商的监控页可以看到 CPU 和内存都是爆满的，建议喝一杯茶再回来看。</p>
+
+<p>如果持续出现 <code class="language-plaintext highlighter-rouge">unhealthy</code> 的状态，可以考虑重启 docker 服务。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service docker restart
+</code></pre></div></div>
+
+<h3 id="gitlab-runner">gitlab-runner</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker run <span class="se">\</span>
+    <span class="nt">-d</span> <span class="se">\</span>
+    <span class="nt">--name</span> gitlab-runner<span class="se">\</span>
+    <span class="nt">--restart</span> always <span class="se">\</span>
+    <span class="nt">-v</span> /root/gitlab-runner/etc/gitlab-runner:/etc/gitlab-runner <span class="se">\</span>
+    <span class="nt">-v</span> /root/gitlab-runner/var/run/docker.sock:/var/run/docker.sock <span class="se">\</span>
+    gitlab/gitlab-runner
+</code></pre></div></div>
+
+<p>接下来进行注册操作。相关信息可以在<a href="https://gitlab.wu-kan.cn/admin/runners">https://gitlab.wu-kan.cn/admin/runners</a>获取。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker <span class="nb">exec</span> <span class="nt">-it</span> gitlab-runner gitlab-runner register
+</code></pre></div></div>
+:ET

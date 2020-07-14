@@ -1,0 +1,269 @@
+I"�<h2 id="考虑以下文法写出每个非终端符号的-first-集和-follow-集">考虑以下文法，写出每个非终端符号的 FIRST 集和 FOLLOW 集</h2>
+
+\[S\to aTUV\vert bV\\
+T\to U\vert UU\\
+U\to\varepsilon\vert bV\\
+V\to\varepsilon\vert cV\]
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>FIRST</th>
+      <th>FOLLOW</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$S$</td>
+      <td>$a,b$</td>
+      <td>$\text{\textdollar}$</td>
+    </tr>
+    <tr>
+      <td>$T$</td>
+      <td>$\varepsilon,b$</td>
+      <td>$\text{\textdollar},b,c$</td>
+    </tr>
+    <tr>
+      <td>$U$</td>
+      <td>$\varepsilon,b$</td>
+      <td>$\text{\textdollar},b,c$</td>
+    </tr>
+    <tr>
+      <td>$V$</td>
+      <td>$\varepsilon,c$</td>
+      <td>$\text{\textdollar},b,c$</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="考虑以下文法">考虑以下文法</h2>
+
+\[S\to(L)\vert a\\
+L\to L,S\vert S\]
+
+<h3 id="消除文法的左递归">消除文法的左递归</h3>
+
+\[S\to(L)\vert a\\
+L\to ST\\
+T\to ,ST\vert\varepsilon\]
+
+<h3 id="构造文法的-ll1-分析表">构造文法的 LL(1) 分析表</h3>
+
+<p>根据</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>FIRST</th>
+      <th>FOLLOW</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td>$(\ a$</td>
+      <td>$\text{\textdollar}\ )\ a$</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td>$(\ a$</td>
+      <td>$)$</td>
+    </tr>
+    <tr>
+      <td>T</td>
+      <td>$,\ \varepsilon$</td>
+      <td>$)$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>可得</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>$($</th>
+      <th>$)$</th>
+      <th>$a$</th>
+      <th>$,$</th>
+      <th>$\text{\textdollar}$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td>$S\to(L)$</td>
+      <td> </td>
+      <td>$S\to a$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td>$L\to ST$</td>
+      <td> </td>
+      <td>$L\to ST$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>T</td>
+      <td> </td>
+      <td>$T\to\varepsilon$</td>
+      <td> </td>
+      <td>$T\to,ST$</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="对于句子-a-a-a给出语法分析的详细过程参照课本-228-页的图-421">对于句子 $(a, (a, a))$，给出语法分析的详细过程（参照课本 228 页的图 4.21）</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">MATCH</th>
+      <th style="text-align: right">STACK</th>
+      <th style="text-align: right">IN</th>
+      <th>OUT</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: right">$S\text{\textdollar}$</td>
+      <td style="text-align: right">$(a,(a,a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left"> </td>
+      <td style="text-align: right">$(L)\text{\textdollar}$</td>
+      <td style="text-align: right">$(a,(a,a))\text{\textdollar}$</td>
+      <td>$S\to(L)$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$($</td>
+      <td style="text-align: right">$L)\text{\textdollar}$</td>
+      <td style="text-align: right">$a,(a,a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$($</td>
+      <td style="text-align: right">$ST)\text{\textdollar}$</td>
+      <td style="text-align: right">$a,(a,a))\text{\textdollar}$</td>
+      <td>$L\to ST$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$($</td>
+      <td style="text-align: right">$aT)\text{\textdollar}$</td>
+      <td style="text-align: right">$a,(a,a))\text{\textdollar}$</td>
+      <td>$S\to a$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a$</td>
+      <td style="text-align: right">$T)\text{\textdollar}$</td>
+      <td style="text-align: right">$,(a,a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a$</td>
+      <td style="text-align: right">$,ST)\text{\textdollar}$</td>
+      <td style="text-align: right">$,(a,a))\text{\textdollar}$</td>
+      <td>$T\to,ST$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,$</td>
+      <td style="text-align: right">$ST)\text{\textdollar}$</td>
+      <td style="text-align: right">$(a,a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,$</td>
+      <td style="text-align: right">$(L)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$(a,a))\text{\textdollar}$</td>
+      <td>$S\to L$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,($</td>
+      <td style="text-align: right">$L)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$a,a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,($</td>
+      <td style="text-align: right">$ST)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$a,a))\text{\textdollar}$</td>
+      <td>$L\to ST$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,($</td>
+      <td style="text-align: right">$aT)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$a,a))\text{\textdollar}$</td>
+      <td>$S\to a$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a$</td>
+      <td style="text-align: right">$T)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$,a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a$</td>
+      <td style="text-align: right">$,ST)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$,a))\text{\textdollar}$</td>
+      <td>$T\to,ST$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,$</td>
+      <td style="text-align: right">$ST)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$a))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,$</td>
+      <td style="text-align: right">$aT)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$a))\text{\textdollar}$</td>
+      <td>$S\to a$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,a$</td>
+      <td style="text-align: right">$T)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$))\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,a$</td>
+      <td style="text-align: right">$)T)\text{\textdollar}$</td>
+      <td style="text-align: right">$))\text{\textdollar}$</td>
+      <td>$T\to\varepsilon$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,a)$</td>
+      <td style="text-align: right">$T)\text{\textdollar}$</td>
+      <td style="text-align: right">$)\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,a)$</td>
+      <td style="text-align: right">$)\text{\textdollar}$</td>
+      <td style="text-align: right">$)\text{\textdollar}$</td>
+      <td>$T\to\varepsilon$</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">$(a,(a,a))$</td>
+      <td style="text-align: right">$\text{\textdollar}$</td>
+      <td style="text-align: right">$\text{\textdollar}$</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="考虑以下文法这一文法是否是-ll1-文法给出理由">考虑以下文法，这一文法是否是 LL(1) 文法？给出理由</h2>
+
+\[S\to aSbS\vert bSaS\vert\varepsilon\]
+
+<p>不是。因为 $\text{FIRST}(S)={a,b,\varepsilon},\text{FOLLOW}(S)={\text{\textdollar},a,b}$，而且 $S\to\varepsilon$ 但 $\text{FIRST}(S)\cap\text{FOLLOW}(S)\neq\emptyset$，不符合 LL(1) 文法的性质。</p>
+:ET

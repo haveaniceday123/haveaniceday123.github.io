@@ -1,0 +1,6 @@
+I"c<p>```haskell
+module MyPicture where
+import Data.Char
+import Data.List
+import Text.Printf</p>
+:ET

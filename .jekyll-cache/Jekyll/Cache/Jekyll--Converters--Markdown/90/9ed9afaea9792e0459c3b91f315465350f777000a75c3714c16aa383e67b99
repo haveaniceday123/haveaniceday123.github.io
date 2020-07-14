@@ -1,0 +1,147 @@
+I"�<h2 id="考虑以下语法制导定义syntax-directed-definition对于输入串-gbbabbccd-构造带注释的分析树annotated-parse-tree">考虑以下语法制导定义（Syntax Directed Definition），对于输入串 gbbabbccd 构造带注释的分析树（annotated parse tree）</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>语法规则</th>
+      <th>语义规则</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$S\to ABCD$</td>
+      <td><code class="language-plaintext highlighter-rouge">S.val = A.val + B.val + C.val + D.val</code></td>
+    </tr>
+    <tr>
+      <td>$A\to gBa$</td>
+      <td><code class="language-plaintext highlighter-rouge">A.val = B.val * 5</code></td>
+    </tr>
+    <tr>
+      <td>$B\to B1b$</td>
+      <td><code class="language-plaintext highlighter-rouge">B.val = B1.val * 2</code></td>
+    </tr>
+    <tr>
+      <td>$B\to b$</td>
+      <td><code class="language-plaintext highlighter-rouge">B.val = 2</code></td>
+    </tr>
+    <tr>
+      <td>$C\to C1c$</td>
+      <td><code class="language-plaintext highlighter-rouge">C.val = C1.val * 3</code></td>
+    </tr>
+    <tr>
+      <td>$C\to c$</td>
+      <td><code class="language-plaintext highlighter-rouge">C.val = 3</code></td>
+    </tr>
+    <tr>
+      <td>$D\to d$</td>
+      <td><code class="language-plaintext highlighter-rouge">D.val = 1</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart TB
+I0--&gt;I1
+I0--&gt;I2
+I0--&gt;I3
+I0--&gt;I4
+I1--&gt;I5
+I1--&gt;I6
+I1--&gt;I7
+I2--&gt;I9
+I2--&gt;I10
+I3--&gt;I11
+I3--&gt;I12
+I4--&gt;I13
+I6--&gt;I14
+I6--&gt;I15
+I9--&gt;I16
+I11--&gt;I17
+I14--&gt;I18
+I0["
+    S
+    S.val = A.val + B.val + C.val + D.val = 34
+"]
+I1["
+    A
+    A.val = B.val * 5 = 20
+"]
+I2["
+    B
+    B.val = B1.val * 2 = 4
+"]
+I3["
+    C
+    C = C1.val * 3 = 9
+"]
+I4["
+    D
+    D.val = 1
+"]
+I5[g]
+I6["
+    B
+    B.val = B1.val * 2 = 4
+"]
+I7[a]
+I9["
+    B1
+    B1.val = 2
+"]
+I10[b]
+I11["
+    C1
+    C1.val = 3
+"]
+I12[c]
+I13[d]
+I14["
+    B1
+    B1.val = 2
+"]
+I15[b]
+I16[b]
+I17[c]
+I18[b]
+</code></pre>
+
+<h2 id="以下文法定义了二进制浮点数常量的语法规则试给出一个-s-属性的语法制导定义其作用是求出该二进制浮点数的十进制值并存放在开始符号-s-相关联的一个综合属性-value-中例如对于输入串-101101s-的-value-属性值结果应该是-5625要求在编写语法制导定义时不得改写文法">以下文法定义了二进制浮点数常量的语法规则。试给出一个 S 属性的语法制导定义，其作用是求出该二进制浮点数的十进制值，并存放在开始符号 S 相关联的一个综合属性 value 中。例如，对于输入串 101.101，S 的 value 属性值结果应该是 5.625。要求在编写语法制导定义时，不得改写文法</h2>
+
+\[S\to L.L\vert L\\
+L\to LB\vert B\\
+B\to 0\vert 1\]
+
+<table>
+  <thead>
+    <tr>
+      <th>语法规则</th>
+      <th>语义规则</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$S\to L$</td>
+      <td><code class="language-plaintext highlighter-rouge">S.val = L.val</code></td>
+    </tr>
+    <tr>
+      <td>$S\to L_1.L_2$</td>
+      <td><code class="language-plaintext highlighter-rouge">S.val = L1.val + L2.val * pow(0.5, L2.len)</code></td>
+    </tr>
+    <tr>
+      <td>$L\to L_1B$</td>
+      <td><code class="language-plaintext highlighter-rouge">L.val = L1.val *2 + B.val, L.len = L1.len + 1</code></td>
+    </tr>
+    <tr>
+      <td>$L\to B$</td>
+      <td><code class="language-plaintext highlighter-rouge">L.val = B.val, L.len = 1</code></td>
+    </tr>
+    <tr>
+      <td>$B\to 0$</td>
+      <td><code class="language-plaintext highlighter-rouge">B.val = 0</code></td>
+    </tr>
+    <tr>
+      <td>$B\to 1$</td>
+      <td><code class="language-plaintext highlighter-rouge">B.val = 1</code></td>
+    </tr>
+  </tbody>
+</table>
+:ET

@@ -1,0 +1,8 @@
+I"�<blockquote>
+  <p>检查的时候被TA现场查出了一个BUG，搞得这门课最后只拿到97分（Rank1 98）…</p>
+
+  <p>具体来说，就是<code class="language-plaintext highlighter-rouge">MultipleCPU.v</code>的输出应该是<code class="language-plaintext highlighter-rouge">RegReadData1</code>这种而不该是<code class="language-plaintext highlighter-rouge">ReadData1</code>。在仿真波形上看<code class="language-plaintext highlighter-rouge">RegReadData1</code>没发现问题，但是写板之后就会出现计算结果早于预期周期出现的情况。</p>
+
+  <p>代码中这里没有改，前排提醒。</p>
+</blockquote>
+:ET

@@ -1,0 +1,5 @@
+I"Z<p><a href="https://vjudge.net/problem/CodeForces-1051F">题目链接</a>
+数据结构课上机碰到的题目，也太硬核了……
+题面上的特别条件<code class="language-plaintext highlighter-rouge">m-n&lt;21</code>是关键，要怎么用呢？
+先随便选一个点作为根建一棵树，那么分以下两种情况来讨论：</p>
+:ET

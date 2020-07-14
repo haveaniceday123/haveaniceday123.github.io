@@ -1,0 +1,59 @@
+I"�<h2 id="what-is-the-proposes-of-architectural-design">What is the proposes of Architectural Design</h2>
+
+<p>体系结构设计侧重于定义候选体系结构，并约束系统中使用的体系结构技术。它依赖于收集在类似系统或问题领域中获得的经验来约束和关注体系结构，这样就不会在体系结构重新发现过程中浪费精力。在已经有定义良好的体系结构的系统中，可能会省略体系结构设计；在开发新的、前所未有的系统时，体系结构设计会比较有益。</p>
+
+<h2 id="what-is-used-in-architectural-diagram">What is used in architectural diagram</h2>
+
+<p>包含上层架构层及其依赖关系的类图。</p>
+
+<h2 id="what-key-abstractions-are-identified-during-architectural-design-why-are-they-identified-here">What key abstractions are identified during Architectural Design? Why are they identified here</h2>
+
+<ul>
+  <li>Domain knowledge（领域知识）</li>
+  <li>Requirements（要求）</li>
+  <li>Glossary（术语表）</li>
+  <li>Domain Model, or the Business Model (if one exists)（域模型或业务模型，若存在）</li>
+</ul>
+
+<p>因为它们通常在需求中未涉及，而系统必须能够处理该概念。</p>
+
+<h2 id="what-is-design-pattern-and-framework">What is Design Pattern, and Framework</h2>
+
+<ul>
+  <li>Pattern（模式）
+    <ul>
+      <li>在一种情境下的常见问题提供通用解决方案</li>
+    </ul>
+  </li>
+  <li>Analysis/Design pattern（分析/设计模式）
+    <ul>
+      <li>为范围狭窄的技术问题提供解决方案</li>
+      <li>提供解决方案的部分</li>
+    </ul>
+  </li>
+  <li>Framework（框架）
+    <ul>
+      <li>定义了问题的一般解决方法</li>
+      <li>提供框架解决方案，其详细信息可以是分析/设计模式</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="how-many-design-pattern-can-you-describe">How many Design Pattern can you describe</h2>
+
+<p>根据百度上查到的信息，设计模式分为三大类，具体如下：</p>
+
+<ol>
+  <li>创建型模式，共五种：工厂方法模式、抽象工厂模式、单例模式、建造者模式、原型模式。</li>
+  <li>结构型模式，共七种：适配器模式、装饰器模式、代理模式、外观模式、桥接模式、组合模式、享元模式。</li>
+  <li>行为型模式，共十一种：策略模式、模板方法模式、观察者模式、迭代子模式、责任链模式、命令模式、备忘录模式、状态模式、访问者模式、中介者模式、解释器模式。</li>
+</ol>
+
+<h2 id="请描述架构设计的步骤及其制品">请描述架构设计的步骤及其制品</h2>
+
+<ol>
+  <li>架构描述：用一段文字，描述你的项目将采用哪种架构，例如 MVC，SringMVC，…。也可多做些解释。</li>
+  <li>架构图：基于上面 1）画出你系统的架构图，就是用包来描述，包里面是空的。</li>
+  <li>关键抽象：找出系统的数据类（entity classes)，并且用类图描述出来</li>
+</ol>
+:ET

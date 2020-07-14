@@ -1,0 +1,362 @@
+I":+<p>考虑以下文法</p>
+
+\[E\to E+T\\
+E\to T\\
+T\to TF\\
+T\to F\\
+F\to F\mathop{\star}\\
+F\to a\\
+F\to b\\\]
+
+<h2 id="写出每个非终端符号的-first-集和-follow-集">写出每个非终端符号的 FIRST 集和 FOLLOW 集</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>FIRST</th>
+      <th>FOLLOW</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$E$</td>
+      <td>$a,b$</td>
+      <td>$\text{\textdollar},+$</td>
+    </tr>
+    <tr>
+      <td>$T$</td>
+      <td>$a,b$</td>
+      <td>$\text{\textdollar},+,a,b$</td>
+    </tr>
+    <tr>
+      <td>$F$</td>
+      <td>$a,b$</td>
+      <td>$\text{\textdollar},+,a,b,\mathop{\star}$</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="构造识别这一文法所有活前缀viable-prefixes的-lr0-自动机参照课本-462-节图-431">构造识别这一文法所有活前缀（viable prefixes）的 LR(0) 自动机（参照课本 4.6.2 节图 4.31）</h2>
+
+<p>使用增广文法增加新的开始符号 $E’$ 和产生式 $E’\to E$。</p>
+
+<pre><code class="language-mermaid">flowchart TB
+I0--E--&gt;I1
+I0--T--&gt;I2
+I0--F--&gt;I3
+I0--a--&gt;I4
+I0--b--&gt;I5
+I1--$--&gt;AC
+I1--+--&gt;I6
+I2--a--&gt;I4
+I2--b--&gt;I5
+I2--F--&gt;I7
+I3--*--&gt;I8
+I6--F--&gt;I3
+I6--a--&gt;I4
+I6--b--&gt;I5
+I6--T--&gt;I9
+I7--*--&gt;I8
+I9--a--&gt;I4
+I9--b--&gt;I5
+I9--F--&gt;I7
+AC["accept"]
+I0["
+    I0
+    E'#rarr;#middot;E
+    E#rarr;#middot;E+T
+    E#rarr;#middot;T
+    T#rarr;#middot;TF
+    T#rarr;#middot;F
+    F#rarr;#middot;F*
+    F#rarr;#middot;a
+    F#rarr;#middot;b
+"]
+I1["
+    I1
+    E'#rarr;#middot;E
+    E#rarr;E#middot;+T
+"]
+I2["
+    I2
+    E#rarr;T#middot;
+    T#rarr;T#middot;F
+    F#rarr;#middot;F*
+    F#rarr;#middot;a
+    F#rarr;#middot;b
+"]
+I3["
+    I3
+    T#rarr;F#middot;
+    F#rarr;F#middot;*
+"]
+I4["
+    I4
+    F#rarr;a#middot;
+"]
+I5["
+    I5
+    F#rarr;b#middot;
+"]
+I6["
+    I6
+    E#rarr;E+#middot;T
+    T#rarr;T#middot;F
+    F#rarr;#middot;F*
+    F#rarr;#middot;a
+    F#rarr;#middot;b
+"]
+I7["
+    I7
+    T#rarr;TF#middot;
+"]
+I8["
+    I8
+    F#rarr;F*#middot;
+"]
+I9["
+    I9
+    E#rarr;E+T#middot;
+    T#rarr;T#middot;F
+    F#rarr;#middot;F*
+    F#rarr;#middot;a
+    F#rarr;#middot;b
+"]
+</code></pre>
+
+<h2 id="构造这一文法的-slr-分析表参照课本-463-节图-437">构造这一文法的 SLR 分析表（参照课本 4.6.3 节图 4.37）</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center">STATE</th>
+      <th style="text-align: center">ACTION$a$</th>
+      <th style="text-align: center">ACTION$b$</th>
+      <th style="text-align: center">ACTION$+$</th>
+      <th style="text-align: center">ACTION$\mathop{\star}$</th>
+      <th style="text-align: center">ACTION$\text{\textdollar}$</th>
+      <th style="text-align: center">GOTO E</th>
+      <th style="text-align: center">GOTO T</th>
+      <th style="text-align: center">GOTO F</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">0</td>
+      <td style="text-align: center">s4</td>
+      <td style="text-align: center">s5</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">1</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">3</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">1</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">s6</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">accept</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">s4</td>
+      <td style="text-align: center">s5</td>
+      <td style="text-align: center">r2</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">r2</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">7</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">3</td>
+      <td style="text-align: center">r4</td>
+      <td style="text-align: center">r4</td>
+      <td style="text-align: center">r4</td>
+      <td style="text-align: center">s8</td>
+      <td style="text-align: center">r4</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">4</td>
+      <td style="text-align: center">r6</td>
+      <td style="text-align: center">r6</td>
+      <td style="text-align: center">r6</td>
+      <td style="text-align: center">r6</td>
+      <td style="text-align: center">r6</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">5</td>
+      <td style="text-align: center">r7</td>
+      <td style="text-align: center">r7</td>
+      <td style="text-align: center">r7</td>
+      <td style="text-align: center">r7</td>
+      <td style="text-align: center">r7</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">6</td>
+      <td style="text-align: center">s4</td>
+      <td style="text-align: center">s5</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">9</td>
+      <td style="text-align: center">3</td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">7</td>
+      <td style="text-align: center">r3</td>
+      <td style="text-align: center">r3</td>
+      <td style="text-align: center">r3</td>
+      <td style="text-align: center">s8</td>
+      <td style="text-align: center">r3</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">8</td>
+      <td style="text-align: center">r5</td>
+      <td style="text-align: center">r5</td>
+      <td style="text-align: center">r5</td>
+      <td style="text-align: center">r5</td>
+      <td style="text-align: center">r5</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: center">9</td>
+      <td style="text-align: center">s4</td>
+      <td style="text-align: center">s5</td>
+      <td style="text-align: center">r1</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">r1</td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: center">7</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="给出-slr-分析器识别输入串-aabmathopstar-的过程参照课本-464-节图-438">给出 SLR 分析器识别输入串 $a+ab\mathop{\star}$ 的过程（参照课本 4.6.4 节图 4.38）</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">STACK</th>
+      <th style="text-align: left">SYMBOLS</th>
+      <th style="text-align: right">INPUT</th>
+      <th style="text-align: center">ACTION</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">0</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: right">$a+ab\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">shift</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">04</td>
+      <td style="text-align: left">$a$</td>
+      <td style="text-align: right">$+ab\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">03</td>
+      <td style="text-align: left">$F$</td>
+      <td style="text-align: right">$+ab\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">02</td>
+      <td style="text-align: left">$T$</td>
+      <td style="text-align: right">$+ab\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">01</td>
+      <td style="text-align: left">$E$</td>
+      <td style="text-align: right">$+ab\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">shift</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">016</td>
+      <td style="text-align: left">$E+$</td>
+      <td style="text-align: right">$ab\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">shift</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">0164</td>
+      <td style="text-align: left">$E+a$</td>
+      <td style="text-align: right">$b\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">0163</td>
+      <td style="text-align: left">$E+F$</td>
+      <td style="text-align: right">$b\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">0169</td>
+      <td style="text-align: left">$E+T$</td>
+      <td style="text-align: right">$b\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">shift</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">01695</td>
+      <td style="text-align: left">$E+Tb$</td>
+      <td style="text-align: right">$\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">01697</td>
+      <td style="text-align: left">$E+TF$</td>
+      <td style="text-align: right">$\mathop{\star}\text{\textdollar}$</td>
+      <td style="text-align: center">shift</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">016978</td>
+      <td style="text-align: left">$E+TF\mathop{\star}$</td>
+      <td style="text-align: right">$\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">01697</td>
+      <td style="text-align: left">$E+TF$</td>
+      <td style="text-align: right">$\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">0169</td>
+      <td style="text-align: left">$E+T$</td>
+      <td style="text-align: right">$\text{\textdollar}$</td>
+      <td style="text-align: center">reduce</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">01</td>
+      <td style="text-align: left">$E$</td>
+      <td style="text-align: right">$\text{\textdollar}$</td>
+      <td style="text-align: center">accept</td>
+    </tr>
+  </tbody>
+</table>
+:ET

@@ -1,0 +1,2 @@
+I"�<p>用 Python 访问 Baidu Web 的 API，先用 Baidu Web 的 API 获得数据，然后用 kMeans 算法对地理位置进行聚类，并对聚类得到的簇进行后处理。</p>
+:ET
