@@ -1,5 +1,0 @@
-I"€<p>```haskell
-module Newton_Raphson where
-squareroot2 :: Float -&gt; Integer -&gt; Float
-squareroot2 x0 n=squareroot 2 x0 n</p>
-:ET

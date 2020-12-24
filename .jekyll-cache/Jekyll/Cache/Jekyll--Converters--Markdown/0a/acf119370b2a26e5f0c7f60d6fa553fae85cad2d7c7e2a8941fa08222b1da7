@@ -1,5 +1,0 @@
-I"d<p>```haskell
-–import Test.QuickCheck
-module MyFraction where
-Fraction=(Integer,Integer)</p>
-:ET

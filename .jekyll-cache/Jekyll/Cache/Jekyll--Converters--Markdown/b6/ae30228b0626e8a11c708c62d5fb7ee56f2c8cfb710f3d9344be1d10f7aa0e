@@ -1,4 +1,0 @@
-I"�<blockquote>
-  <p>在 TH-2G 集群上，限定使用 4 个节点（仅用 CPU），或限定使用 2 个节点（用 GPU，2 机 8 卡），进行 HPL、HPCG 跑分任务</p>
-</blockquote>
-:ET

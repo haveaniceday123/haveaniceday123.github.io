@@ -1,3 +1,0 @@
-I"�<p><a href="https://vjudge.net/problem/POJ-3250">题目链接</a>
-维护一个递减的单调栈，每次插入后当前这只牛可以被<code class="language-plaintext highlighter-rouge">q.size()-1</code>只左边的高于他的牛看到。</p>
-:ET
